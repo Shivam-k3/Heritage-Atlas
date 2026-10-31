@@ -1,11 +1,9 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import { ProvenanceChip } from "@/components/ProvenanceChip";
 
-export const metadata = {
-  title: "Component showcase - Heritage Atlas",
-  description: "Temporary design system showcase for provenance chips, tokens, and rules.",
-};
 
 export default function DevComponentsPage() {
   return (
