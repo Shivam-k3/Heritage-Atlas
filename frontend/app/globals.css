@@ -1,0 +1,146 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+@import "leaflet.markercluster/dist/MarkerCluster.css";
+
+:root {
+  --stone: #E8EAE6;
+  --paper: #F7F8F5;
+  --ink: #1A1D26;
+  --indigo: #25305E;
+  --sandstone: #B3A184;
+  --water: #17695B;
+  --turmeric: #8A5A00;
+  --turmeric-fill: #D49A1E;
+  --clay-red: #9B2C2C;
+  --mute: #5E6472;
+}
+
+@theme {
+  --color-stone: var(--stone);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-indigo: var(--indigo);
+  --color-sandstone: var(--sandstone);
+  --color-water: var(--water);
+  --color-turmeric: var(--turmeric);
+  --color-turmeric-fill: var(--turmeric-fill);
+  --color-clay-red: var(--clay-red);
+  --color-mute: var(--mute);
+
+  --font-serif: var(--font-spectral), var(--font-noto-gujarati), var(--font-noto-devanagari), serif;
+  --font-sans: var(--font-public-sans), var(--font-noto-gujarati), var(--font-noto-devanagari), sans-serif;
+
+  --radius-photo: 0px;
+  --radius-chip: 6px;
+  --radius-control: 6px;
+  --radius-panel: 10px;
+
+  --shadow-map-control: 0 2px 8px rgba(26, 29, 38, 0.12);
+
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-10: 40px;
+  --spacing-16: 64px;
+}
+
+body {
+  background-color: var(--stone);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 27px;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typography scale per DESIGN.md */
+.type-caption {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.type-small {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.type-body {
+  font-size: 17px;
+  line-height: 27px;
+  max-width: 70ch;
+}
+
+.type-h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 30px;
+}
+
+.type-h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 36px;
+}
+
+.type-h1 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 38px;
+  line-height: 46px;
+}
+
+/* Field note 3px sandstone rule per DESIGN.md */
+.field-note-rule {
+  border-left: 3px solid var(--sandstone);
+  padding-left: 12px;
+}
+
+/* Accessible focus ring per DESIGN.md: 2px indigo with 2px offset */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+
+/* Custom leaflet cluster markers styled with tokens */
+.heritage-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--paper);
+  border: 1.5px solid var(--indigo);
+  color: var(--indigo);
+  border-radius: 9999px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 6px rgba(26, 29, 38, 0.15);
+  transition: transform 0.15s ease;
+}
+.heritage-cluster:hover {
+  transform: scale(1.08);
+  background-color: var(--stone);
+}
+
+/* Leaflet attribution styling per DESIGN.md */
+.leaflet-control-attribution {
+  background-color: rgba(247, 248, 245, 0.9) !important;
+  color: var(--mute) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 11px !important;
+  padding: 2px 6px !important;
+  border-top-left-radius: 4px;
+}
+.leaflet-control-attribution a {
+  color: var(--indigo) !important;
+  text-decoration: underline;
+}
