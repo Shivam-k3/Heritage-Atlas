@@ -222,7 +222,7 @@ def feature_scores(image_embedding: np.ndarray, use_negatives: bool = False) -> 
     if use_negatives:
         negatives = _negative_embeddings()
         if negatives is not None:
-            scores = scores - negatives @ vector
+            scores = np.asarray(scores - negatives @ vector, dtype=np.float32)
     return {label: float(scores[index]) for index, label in enumerate(FEATURES)}
 
 
