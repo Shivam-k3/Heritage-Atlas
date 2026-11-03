@@ -1,6 +1,8 @@
-"""Apply db/schema.sql to the database in DATABASE_URL. Safe to re-run with --reset.
+"""Apply db/schema.sql and pending db/migrations/*.sql to DATABASE_URL.
 
-Usage:  python scripts/init_db.py          # create tables if the DB is empty
+Every statement is idempotent, so this is safe to re-run and upgrades the original scaffold.
+
+Usage:  python scripts/init_db.py          # create or upgrade
         python scripts/init_db.py --reset  # DROP everything and recreate (dev only)
 """
 
@@ -13,9 +15,28 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from app.db import DSN  # noqa: E402
+BACKEND_ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BACKEND_ROOT))
 
-SCHEMA = pathlib.Path(__file__).resolve().parents[2] / "db" / "schema.sql"
+from app.config import database_url  # noqa: E402
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+SCHEMA = REPO_ROOT / "db" / "schema.sql"
+MIGRATIONS = sorted((REPO_ROOT / "db" / "migrations").glob("*.sql"))
+
+# Supabase exposes public tables through PostgREST; RLS makes them deny-by-default.
+ENABLE_RLS = """
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE image_tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tag_reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ingest_batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trails ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trail_stops ENABLE ROW LEVEL SECURITY;
+"""
 
 
 def main() -> int:
@@ -23,15 +44,16 @@ def main() -> int:
     parser.add_argument("--reset", action="store_true", help="drop all tables first")
     args = parser.parse_args()
 
-    with psycopg.connect(DSN, autocommit=True) as conn:
+    with psycopg.connect(database_url(), autocommit=True) as conn:
         if args.reset:
             conn.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
-        exists = conn.execute("SELECT to_regclass('public.sites')").fetchone()[0]
-        if exists:
-            print("Schema already present. Use --reset to recreate.")
-            return 0
-        conn.execute(SCHEMA.read_text())
-    print("Schema applied.")
+        conn.execute(SCHEMA.read_text(encoding="utf-8"))
+        print("Schema applied.")
+        for migration in MIGRATIONS:
+            conn.execute(migration.read_text(encoding="utf-8"))
+            print(f"Migration applied: {migration.name}")
+        conn.execute(ENABLE_RLS)
+    print("Row level security enabled on every table.")
     return 0
 
 

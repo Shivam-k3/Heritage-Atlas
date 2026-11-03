@@ -9,3 +9,8 @@ ignore = ["S101", "B008", "E501"]   # assert in tests; FastAPI File()/Form(); lo
 [tool.pytest.ini_options]
 pythonpath = ["backend"]
 testpaths = ["backend/tests"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["backend/app", "backend/worker.py", "backend/scripts"]
+ignore_missing_imports = true

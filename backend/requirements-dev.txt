@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest
+httpx
+ruff
+mypy
+scikit-learn  # few-shot evaluation probe only; not used by the API or worker

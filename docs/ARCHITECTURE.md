@@ -30,11 +30,26 @@ reciprocal rank fusion (rank-based), not raw scores. Confirm dimensions from the
 2. Worker claims a job with `FOR UPDATE SKIP LOCKED`, so several workers can run safely.
 3. Worker embeds the image, writes tags with status `auto` and raw cosine scores, embeds the description.
 4. On error the job is marked `failed` with the traceback; the file and notes are untouched.
+5. A running job older than `JOB_LEASE_SECONDS` is treated as abandoned and requeued; that counts as
+   an attempt. Retries wait an exponential backoff and stop at `JOB_MAX_RETRIES`.
 
 ## Tagging
-Prompts are built from a fixed vocabulary (`app/ml.py`). One site type (argmax) and up to
-`MAX_FEATURES` features above `FEATURE_THRESHOLD`. The threshold is tuned on the labelled set.
-Scores are raw cosine similarities.
+Prompts live in `app/feature_prompts.json` with a version string (`heritage-v2`). Seven stable
+feature labels are encoded as 4 prompt variants each, normalised, averaged and normalised again.
+Site type is never predicted: the site record owns `category`. Images are compared only against
+the aggregated feature embeddings; the result is a raw cosine per label.
+A feature is emitted only when its score reaches its own per-label cut-off. Missing cut-offs
+(`null`) mean the feature cannot be emitted, so "no confident feature" is a valid result. Cut-offs
+are tuned on human labels from tuning sites only (`scripts/tune_tagging.py`); no universal
+threshold is used. `scripts/eval_tagging.py` compares the old baseline, prompt aggregation and
+aggregation with negative prompts; the simpler method stays unless validation improves.
+
+## Folder ingestion
+`scripts/ingest_folder.py` scans a local folder recursively, validates and hashes files, extracts
+EXIF GPS/time, clusters GPS points within a configurable radius (default 300 m, Haversine) and
+creates draft sites plus processing jobs. Missing GPS files go to a separate draft bucket. Draft
+clusters are never canonical: reviewers confirm, rename, merge or reject them through the API.
+Re-running the folder is safe because content is deduplicated by SHA-256.
 
 ## Verification and provenance
 Tag status: `auto` -> `verified` | `rejected`; humans can add `added_by_human`.
@@ -46,7 +61,11 @@ Tags used: verified and human-added if present, otherwise auto. alpha is chosen 
 The response includes shared tags and the nearest photo pair so the reason can be shown.
 
 ## Trails
-A trail is an ordered list of stops. Distance uses the haversine formula (straight line).
+A trail is an ordered list of stops. Distance uses the haversine formula (straight line), reported as
+`distance_mode: "straight_line"` and never as road distance. Stops without coordinates are listed in
+`missing_coordinates` and excluded from leg and total calculations.
+`POST /trails/from-images` groups stored photographs into one stop per site, ordered by the earliest
+EXIF `captured_at`; images without a timestamp or site coordinates are counted and skipped.
 The journal is generated from templates (not an LLM): site, category, verified features, photo count, and
 the original field note shown verbatim and separately from generated text, which is labelled "generated".
 
@@ -62,13 +81,19 @@ trail distances are straight lines; geocoded locations may need correction; no a
 
 ## Repo layout
 ```
-db/schema.sql          schema (source of truth)
-backend/app            main.py (HTTP), ml.py (models), db.py (connection)
+db/schema.sql          schema (source of truth); db/migrations for idempotent upgrades
+backend/app            main.py, routers/, repositories/, services/, ml.py, db.py
 backend/worker.py      job processor
-backend/scripts        init_db.py, seed loader, eval scripts
+backend/scripts        init_db, dataset loader, embeddings, checkpoint, eval scripts
 backend/tests          pytest
 frontend/              Next.js app
 docs/                  PRD, API, ARCHITECTURE, DATASET, EVALUATION, TASKS, WORKFLOW
 DESIGN.md              UI design system
 AGENTS.md              rules for AI coding agents
 ```
+
+## Persistence choice
+The project keeps the existing raw `psycopg` repositories and `db/schema.sql` rather than SQLAlchemy
+2/Alembic. Schema changes are idempotent SQL in `db/migrations/`; `init_db.py` applies the schema,
+then every migration, then RLS. This was chosen to avoid rewriting a working data layer; revisit if
+schema history or rollbacks become necessary.

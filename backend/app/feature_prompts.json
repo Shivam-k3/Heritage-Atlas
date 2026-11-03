@@ -1,0 +1,104 @@
+{
+  "version": "heritage-v2",
+  "description": "Zero-shot CLIP feature vocabulary. One label per visually distinct feature in the dataset. Thresholds are raw cosine acceptance cut-offs, never probabilities; null means the feature cannot be emitted until tuned on human labels.",
+  "features": [
+    {
+      "label": "sculptural carvings",
+      "prompts": [
+        "a photograph of intricate stone sculptures carved into an Indian temple wall",
+        "close-up of detailed relief carvings of figures and motifs on a heritage monument",
+        "ancient hand-carved stone sculpture decorating a historic Indian building",
+        "carved stone panels with human figures and ornamental patterns on a temple"
+      ],
+      "negative_prompts": [
+        "a plain flat stone wall with no carved figures or relief decoration",
+        "a smooth undecorated masonry surface on a modern building"
+      ],
+      "threshold": null
+    },
+    {
+      "label": "jali work",
+      "prompts": [
+        "a photograph of a pierced stone lattice screen with geometric patterns",
+        "ornate jali stone latticework window in an Indian monument",
+        "carved stone screen with intricate perforated lattice patterns",
+        "close-up of a stone jali screen with patterned openings"
+      ],
+      "negative_prompts": [
+        "a solid stone wall with no perforated screen or lattice openings",
+        "a plain window opening without carved stone tracery"
+      ],
+      "threshold": null
+    },
+    {
+      "label": "staircases",
+      "prompts": [
+        "a photograph of stone steps leading down into a stepwell",
+        "a long flight of worn stone stairs in a historic Indian building",
+        "symmetrical stone staircase with landings inside a heritage stepwell",
+        "ancient stone steps and terraces descending into a stepwell"
+      ],
+      "negative_prompts": [
+        "a flat stone floor or terrace with no steps or stairs",
+        "a single low threshold step in front of a doorway"
+      ],
+      "threshold": null
+    },
+    {
+      "label": "domes",
+      "prompts": [
+        "a photograph of a large stone dome on an Indian heritage building",
+        "rounded dome rising above a historic mosque or tomb",
+        "carved stone dome with a finial on a heritage monument",
+        "view of a historic Indian dome against the sky"
+      ],
+      "negative_prompts": [
+        "a flat roof or straight-sided building without a dome",
+        "a pointed spire or tower with no rounded roof"
+      ],
+      "threshold": null
+    },
+    {
+      "label": "stone arches",
+      "prompts": [
+        "a photograph of carved stone arches in a historic Indian building",
+        "a row of ornate stone archways inside a monument",
+        "pointed stone arch supported by carved columns",
+        "ancient stone arch entrance of a heritage site"
+      ],
+      "negative_prompts": [
+        "a rectangular stone doorway with a flat lintel and no arch",
+        "a plain wall with no arched opening"
+      ],
+      "threshold": null
+    },
+    {
+      "label": "carved pillars",
+      "prompts": [
+        "a photograph of carved stone pillars inside a historic Indian monument",
+        "a row of ornate stone columns with sculpted capitals",
+        "close-up of a decorated stone pillar in a temple",
+        "ancient stone columns supporting a carved roof"
+      ],
+      "negative_prompts": [
+        "a plain unadorned stone wall with no columns or pillars",
+        "a smooth concrete column in a modern building"
+      ],
+      "threshold": null
+    },
+    {
+      "label": "decorative brackets",
+      "prompts": [
+        "a photograph of carved stone brackets supporting a balcony",
+        "ornate corbels and brackets under the eaves of a heritage building",
+        "decorative carved stone supports on an Indian palace facade",
+        "close-up of sculpted stone brackets on a historic building"
+      ],
+      "negative_prompts": [
+        "a flat wall-to-roof junction with no projecting carved supports",
+        "a plain ceiling with no brackets or corbels"
+      ],
+      "threshold": null
+    }
+  ]
+}

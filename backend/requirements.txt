@@ -5,5 +5,4 @@ psycopg[binary]
 pgvector
 numpy
 pillow
-sentence-transformers
 python-dotenv
