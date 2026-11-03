@@ -110,7 +110,7 @@ def ingest_folder(
                     )
                     continue
                 duplicate = pending_by_sha.get(saved.sha256)
-                if duplicate:
+                if duplicate is not None:
                     counts["duplicates"] += 1
                     records[index] = _record(
                         entry,
