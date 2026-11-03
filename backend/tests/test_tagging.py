@@ -60,6 +60,14 @@ def test_scores_are_raw_cosine_not_probabilities(monkeypatch):
     assert abs(tags[0][2] - 1.0) < 1e-5
 
 
+def test_negative_prompt_adjustment_is_applied(monkeypatch):
+    labels = _fake_features(monkeypatch)
+    monkeypatch.setattr(ml, "_negative_emb", 0.5 * labels)
+    scores = ml.feature_scores(_unit(labels[0]), use_negatives=True)
+    assert abs(scores[ml.FEATURES[0]] - 0.5) < 1e-5
+    assert abs(scores[ml.FEATURES[1]]) < 1e-5
+
+
 def test_prompt_config_is_versioned_and_validated():
     config = vocabulary.prompt_config()
     assert config.version == "heritage-v2"

@@ -217,7 +217,7 @@ def feature_scores(image_embedding: np.ndarray, use_negatives: bool = False) -> 
     norm = float(np.linalg.norm(vector))
     if norm == 0:
         raise ValueError("image embedding must not be zero")
-    vector = vector / norm
+    vector = np.asarray(vector / norm, dtype=np.float32)
     scores = _feature_embeddings() @ vector
     if use_negatives:
         negatives = _negative_embeddings()
