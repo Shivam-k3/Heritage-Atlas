@@ -90,6 +90,7 @@ def ingest_folder(
         try:
             pending: list[tuple[int, ScanEntry, SavedImage]] = []
             pending_by_sha: dict[str, int] = {}
+            existing_hashes: set[str] = set()
             for index, entry in enumerate(entries):
                 try:
                     with entry.path.open("rb") as stream:
@@ -101,6 +102,7 @@ def ingest_folder(
                 existing = images_repo.find_by_sha256(conn, saved.sha256)
                 if existing:
                     counts["duplicates"] += 1
+                    existing_hashes.add(saved.sha256)
                     records[index] = _record(
                         entry,
                         "duplicate",
@@ -111,7 +113,8 @@ def ingest_folder(
                     continue
                 duplicate = pending_by_sha.get(saved.sha256)
                 if duplicate is not None:
-                    counts["duplicates"] += 1
+                    if saved.sha256 not in existing_hashes:
+                        counts["duplicates"] += 1
                     records[index] = _record(
                         entry,
                         "duplicate",
