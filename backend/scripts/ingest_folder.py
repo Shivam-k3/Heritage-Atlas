@@ -89,6 +89,7 @@ def ingest_folder(
         }
         try:
             pending: list[tuple[int, ScanEntry, SavedImage]] = []
+            pending_by_sha: dict[str, int] = {}
             for index, entry in enumerate(entries):
                 try:
                     with entry.path.open("rb") as stream:
@@ -108,6 +109,17 @@ def ingest_folder(
                         sha256=saved.sha256,
                     )
                     continue
+                duplicate = pending_by_sha.get(saved.sha256)
+                if duplicate:
+                    counts["duplicates"] += 1
+                    records[index] = _record(
+                        entry,
+                        "duplicate",
+                        duplicate_of=entries[duplicate].relative_path,
+                        sha256=saved.sha256,
+                    )
+                    continue
+                pending_by_sha[saved.sha256] = index
                 pending.append((index, entry, saved))
 
             gps_points = [

@@ -31,8 +31,10 @@ def _seed(db, tmp_path) -> dict[str, int]:
         (_text_vector(1),),
     ).fetchone()
     image = db.execute(
-        """INSERT INTO images (site_id, storage_path, clip_embedding, status)
-           VALUES (%s, %s, %s, 'processed') RETURNING id""",
+        """INSERT INTO images
+               (site_id, storage_path, clip_embedding, status, author, licence)
+           VALUES (%s, %s, %s, 'processed', 'A. Photographer', 'CC BY-SA 4.0')
+           RETURNING id""",
         (first["id"], str(image_path), _clip_vector(0)),
     ).fetchone()
     second_image = db.execute(
