@@ -20,6 +20,19 @@ class TagOut(BaseModel):
     prompt_version: str | None = None
 
 
+class ModelReadinessOut(BaseModel):
+    loaded: bool
+    dimension: int
+    initialization_seconds: float | None = None
+    error: str | None = None
+
+
+class ReadinessOut(BaseModel):
+    status: Literal["ready", "not_ready"]
+    database: Literal["ok", "unavailable"]
+    models: dict[str, ModelReadinessOut]
+
+
 class ImageOut(BaseModel):
     id: int
     site_id: int
@@ -393,3 +406,108 @@ class HealthOut(BaseModel):
     status: str
     database: str
     models: dict[str, object]
+
+
+class AIHistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=2_000)
+
+    @field_validator("content")
+    @classmethod
+    def content_not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("content must not be blank")
+        return value
+
+
+class AIChatRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2_000)
+    history: list[AIHistoryMessage] = Field(default_factory=list)
+    site_id: int | None = Field(default=None, gt=0)
+    image_id: int | None = Field(default=None, gt=0)
+
+    @field_validator("question")
+    @classmethod
+    def question_not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("question must not be blank")
+        return value
+
+
+class AISourceOut(BaseModel):
+    kind: Literal["site", "image"]
+    label: str
+    site_id: int | None = None
+    image_id: int | None = None
+    source_url: str | None = None
+    licence_url: str | None = None
+
+
+class AIStatusOut(BaseModel):
+    enabled: bool
+    provider: str
+    model: str
+    configured: bool
+    available: bool
+
+
+class AIChatOut(BaseModel):
+    response: str
+    intent: str
+    sites: list[SiteSummaryOut] = Field(default_factory=list)
+    images: list[SearchImageOut] = Field(default_factory=list)
+    sources: list[AISourceOut] = Field(default_factory=list)
+    ai_generated: bool
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AIExplainOut(BaseModel):
+    site: SiteDetailOut
+    explanation: str
+    architectural_characteristics: list[str] = Field(default_factory=list)
+    historical_context: list[str] = Field(default_factory=list)
+    sources: list[AISourceOut] = Field(default_factory=list)
+    ai_generated: bool
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AITrailSuggestRequest(BaseModel):
+    site_ids: list[int] = Field(min_length=1, max_length=30)
+    title: str | None = Field(default=None, max_length=200)
+    description: str | None = Field(default=None, max_length=2_000)
+
+    @field_validator("site_ids")
+    @classmethod
+    def unique_site_ids(cls, value: list[int]) -> list[int]:
+        if len(set(value)) != len(value):
+            raise ValueError("site_ids must not contain duplicates")
+        return value
+
+
+class AITrailSiteOut(BaseModel):
+    site_id: int
+    name: str
+    region: str | None = None
+    category: str | None = None
+    lat: float | None = None
+    lon: float | None = None
+
+
+class AITrailLegOut(BaseModel):
+    from_site: int = Field(alias="from")
+    to_site: int = Field(alias="to")
+    km: float
+
+
+class AITrailSuggestOut(BaseModel):
+    title: str
+    theme: str
+    rationale: str
+    sites: list[AITrailSiteOut]
+    legs: list[AITrailLegOut]
+    distance_mode: Literal["straight_line"] = "straight_line"
+    missing_coordinates: list[int] = Field(default_factory=list)
+    ai_generated: bool
+    warnings: list[str] = Field(default_factory=list)

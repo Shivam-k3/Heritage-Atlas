@@ -8,8 +8,8 @@ import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { ProvenanceChip } from "@/components/ProvenanceChip";
-import { getSite, resolveImageUrl } from "@/lib/api";
-import type { SiteDetail, Tag } from "@/lib/types";
+import { getRelatedSites, getSite, resolveImageUrl } from "@/lib/api";
+import type { RelatedSite, SiteDetail, Tag } from "@/lib/types";
 
 export default function SiteDetailPage({
   params,
@@ -22,6 +22,10 @@ export default function SiteDetailPage({
   const [site, setSite] = useState<SiteDetail | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [related, setRelated] = useState<RelatedSite[]>([]);
+  const [isLoadingRelated, setIsLoadingRelated] = useState<boolean>(true);
+  const [relatedError, setRelatedError] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -56,6 +60,39 @@ export default function SiteDetailPage({
 
     void load();
 
+    return () => {
+      ignore = true;
+    };
+  }, [siteId]);
+
+  // Related sites are a secondary section: failure must not hide the site page.
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadRelated() {
+      if (Number.isNaN(siteId)) {
+        setIsLoadingRelated(false);
+        return;
+      }
+      setIsLoadingRelated(true);
+      setRelatedError(null);
+      try {
+        const data = await getRelatedSites(siteId, 5);
+        if (!ignore) setRelated(data);
+      } catch (err: unknown) {
+        if (!ignore) {
+          setRelatedError(
+            err instanceof Error
+              ? err.message
+              : "Related sites are unavailable."
+          );
+        }
+      } finally {
+        if (!ignore) setIsLoadingRelated(false);
+      }
+    }
+
+    void loadRelated();
     return () => {
       ignore = true;
     };
@@ -96,20 +133,12 @@ export default function SiteDetailPage({
             <span>Back to Explore</span>
           </Link>
 
-          {/* Add to trail disabled button per Task 4 */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled
-              title="Trails builder is coming in the next release."
-              className="px-4 py-2 rounded-[6px] bg-paper border border-sandstone text-mute opacity-60 cursor-not-allowed type-small font-semibold select-none"
-            >
-              Add to trail
-            </button>
-            <span className="hidden sm:inline type-caption text-mute italic">
-              (Trails coming soon)
-            </span>
-          </div>
+          <Link
+            href={`/trails?site=${siteId}`}
+            className="px-4 py-2 rounded-[6px] bg-paper border border-sandstone text-indigo type-small font-semibold hover:bg-stone focus-ring transition-colors"
+          >
+            Add to trail
+          </Link>
         </div>
 
         {/* Loading State */}
@@ -154,7 +183,9 @@ export default function SiteDetailPage({
                 <span>{site.region}</span>
                 <span>&bull;</span>
                 <span className="tabular-nums font-mono text-xs">
-                  {site.lat.toFixed(4)}° N, {site.lon.toFixed(4)}° E
+                  {typeof site.lat === "number" && typeof site.lon === "number"
+                    ? `${site.lat.toFixed(4)}° N, ${site.lon.toFixed(4)}° E`
+                    : "Coordinates not recorded"}
                 </span>
               </div>
             </div>
@@ -277,6 +308,68 @@ export default function SiteDetailPage({
                 </div>
               </section>
             )}
+
+            {/* Related sites: simple list, failure stays local to this section */}
+            <section
+              aria-label="Related heritage sites"
+              className="bg-paper p-6 rounded-[10px] border border-sandstone space-y-3"
+            >
+              <h2 className="type-h2 text-indigo border-b border-sandstone pb-3">
+                Related sites
+              </h2>
+
+              {isLoadingRelated && (
+                <p className="type-small text-mute">Loading related sites...</p>
+              )}
+
+              {!isLoadingRelated && relatedError && (
+                <p className="type-small text-clay-red">
+                  Related sites are unavailable: {relatedError}
+                </p>
+              )}
+
+              {!isLoadingRelated &&
+                !relatedError &&
+                related.length === 0 && (
+                  <p className="type-small text-mute">
+                    No related sites are available yet. This needs stored image
+                    embeddings and tags.
+                  </p>
+                )}
+
+              {!isLoadingRelated &&
+                !relatedError &&
+                related.length > 0 && (
+                  <ul className="space-y-2">
+                    {related.map((item) => (
+                      <li
+                        key={item.site_id}
+                        className="flex flex-wrap items-center justify-between gap-2 border border-sandstone/70 rounded-[6px] px-3 py-2 bg-stone/30"
+                      >
+                        <div className="min-w-0">
+                          <Link
+                            href={`/sites/${item.site_id}`}
+                            className="type-small font-semibold text-indigo hover:underline break-words"
+                          >
+                            {item.name}
+                          </Link>
+                          <div className="type-caption text-mute">
+                            {item.shared_tags.length > 0
+                              ? `Shared tags: ${item.shared_tags.join(", ")}`
+                              : "No shared verified tags"}
+                          </div>
+                        </div>
+                        <span
+                          title="Combined similarity, not a probability."
+                          className="font-mono text-xs tabular-nums font-semibold px-2 py-0.5 rounded-[4px] bg-stone text-indigo border border-sandstone/50 shrink-0"
+                        >
+                          {item.score.toFixed(2)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </section>
           </article>
         )}
       </main>

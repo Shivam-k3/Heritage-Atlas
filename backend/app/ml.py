@@ -10,6 +10,8 @@ Model imports stay lazy so unit tests and CI do not need torch.
 
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from threading import Lock
+from time import perf_counter
 from typing import Any, BinaryIO
 
 import numpy as np
@@ -31,6 +33,22 @@ _clip: Any = None
 _text: Any = None
 _feature_emb: np.ndarray | None = None
 _negative_emb: np.ndarray | None = None
+_text_lock = Lock()
+_clip_lock = Lock()
+_readiness: dict[str, dict[str, Any]] = {
+    "text": {
+        "loaded": False,
+        "dimension": TEXT_DIM,
+        "initialization_seconds": None,
+        "error": None,
+    },
+    "clip": {
+        "loaded": False,
+        "dimension": CLIP_DIM,
+        "initialization_seconds": None,
+        "error": None,
+    },
+}
 
 ImageSource = str | Path | BinaryIO
 
@@ -41,6 +59,45 @@ class InvalidImageError(ValueError):
 
 class ModelDimensionError(RuntimeError):
     """A loaded model does not match the vector column dimensions."""
+
+
+class ModelUnavailableError(RuntimeError):
+    """A model could not be initialized and is unavailable for inference."""
+
+
+def _model_readiness(name: str) -> dict[str, Any]:
+    return dict(_readiness[name])
+
+
+def model_readiness() -> dict[str, dict[str, Any]]:
+    return {"text": _model_readiness("text"), "clip": _model_readiness("clip")}
+
+
+def _load(name: str, dimension: int, model_name: str, lock: Lock) -> Any:
+    global _clip, _text
+    with lock:
+        model = _text if name == "text" else _clip
+        if model is not None:
+            return model
+        state = _readiness[name]
+        if state["error"] is not None:
+            raise ModelUnavailableError(f"{name} model unavailable: {state['error']}")
+        started = perf_counter()
+        try:
+            from sentence_transformers import SentenceTransformer
+
+            model = SentenceTransformer(model_name, device=config.model_device())
+            _check_dim(model, dimension, name)
+        except Exception as exc:
+            state["error"] = f"{type(exc).__name__}: {exc}"
+            raise ModelUnavailableError(f"{name} model unavailable") from exc
+        state["loaded"] = True
+        state["initialization_seconds"] = round(perf_counter() - started, 3)
+        if name == "text":
+            _text = model
+        else:
+            _clip = model
+        return model
 
 
 def _load_image(source: ImageSource) -> Image.Image:
@@ -65,23 +122,21 @@ def _check_dim(model: Any, expected: int, name: str) -> None:
 
 
 def clip() -> Any:
-    global _clip
-    if _clip is None:
-        from sentence_transformers import SentenceTransformer
-
-        _clip = SentenceTransformer(config.clip_model_name(), device=config.model_device())
-        _check_dim(_clip, CLIP_DIM, "CLIP")
-    return _clip
+    return _load("clip", CLIP_DIM, config.clip_model_name(), _clip_lock)
 
 
 def text_model() -> Any:
-    global _text
-    if _text is None:
-        from sentence_transformers import SentenceTransformer
+    return _load("text", TEXT_DIM, config.text_embedding_model(), _text_lock)
 
-        _text = SentenceTransformer(config.text_embedding_model(), device=config.model_device())
-        _check_dim(_text, TEXT_DIM, "text embedding model")
-    return _text
+
+def warm_up() -> dict[str, dict[str, Any]]:
+    """Initialize both models once and return their readiness state."""
+    for loader in (text_model, clip):
+        try:
+            loader()
+        except ModelUnavailableError:
+            continue
+    return model_readiness()
 
 
 def embed_image(source: ImageSource) -> np.ndarray:

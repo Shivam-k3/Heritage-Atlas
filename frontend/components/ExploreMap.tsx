@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Map as LeafletMap, MarkerClusterGroup } from "leaflet";
 import type { SiteSummary } from "@/lib/types";
 
@@ -85,6 +85,23 @@ export default function ExploreMap({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<LeafletMap | null>(null);
   const clusterGroupRef = useRef<MarkerClusterGroup | null>(null);
+  const fitSitesRef = useRef<(() => void) | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  const validSites = useMemo(
+    () =>
+      sites.filter(
+        (site) =>
+          Number.isFinite(site.lat) &&
+          Number.isFinite(site.lon) &&
+          site.lat >= -90 &&
+          site.lat <= 90 &&
+          site.lon >= -180 &&
+          site.lon <= 180
+      ),
+    [sites]
+  );
 
   // Initialise map
   useEffect(() => {
@@ -93,7 +110,10 @@ export default function ExploreMap({
     async function initLeaflet() {
       if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-      const L = await import("leaflet");
+      const leafletModule = await import("leaflet");
+      // MarkerCluster augments Leaflet at runtime. Use the mutable default
+      // export rather than Turbopack's frozen module namespace.
+      const L = leafletModule.default ?? leafletModule;
       // MarkerCluster attaches to window.L
       (window as WindowWithLeaflet).L = L;
       await import("leaflet.markercluster");
@@ -107,12 +127,16 @@ export default function ExploreMap({
         zoomControl: false,
       });
 
-      // OpenStreetMap tiles with visible attribution
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
-      }).addTo(map);
+      });
+      tileLayer.on("tileerror", () => {
+        setMapError("Map tiles could not be loaded. Check your network connection.");
+      });
+      tileLayer.on("tileload", () => setMapError(null));
+      tileLayer.addTo(map);
 
       // Custom positioned zoom control in bottom-right
       L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -136,16 +160,27 @@ export default function ExploreMap({
 
       mapInstanceRef.current = map;
       clusterGroupRef.current = clusterGroup;
+      setMapReady(true);
+      const resizeObserver = new ResizeObserver(() => map.invalidateSize());
+      resizeObserver.observe(mapContainerRef.current);
+      window.setTimeout(() => map.invalidateSize(), 0);
+
+      return () => resizeObserver.disconnect();
     }
 
-    void initLeaflet();
+    let cleanup: (() => void) | undefined;
+    void initLeaflet().then((value) => {
+      cleanup = value;
+    });
 
     return () => {
       isMounted = false;
+      cleanup?.();
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
         clusterGroupRef.current = null;
+        setMapReady(false);
       }
     };
   }, []);
@@ -156,13 +191,14 @@ export default function ExploreMap({
 
     async function updateMarkers() {
       if (!mapInstanceRef.current || !clusterGroupRef.current) return;
-      const L = await import("leaflet");
+      const leafletModule = await import("leaflet");
+      const L = leafletModule.default ?? leafletModule;
       if (!isMounted) return;
 
       const clusterGroup = clusterGroupRef.current;
       clusterGroup.clearLayers();
 
-      sites.forEach((site) => {
+      validSites.forEach((site) => {
         const isSelected = site.id === selectedSiteId;
         const pinIcon = L.divIcon({
           html: createPinHtml(site.category, isSelected, site.name),
@@ -185,7 +221,27 @@ export default function ExploreMap({
     return () => {
       isMounted = false;
     };
-  }, [sites, selectedSiteId, onSelectSite]);
+  }, [mapReady, validSites, selectedSiteId, onSelectSite]);
+
+  const fitAllSites = useCallback(() => {
+    const map = mapInstanceRef.current;
+    if (!map || validSites.length === 0) return;
+    const bounds = validSites.map((site) => [site.lat, site.lon] as [number, number]);
+    map.fitBounds(bounds, { padding: [36, 36], maxZoom: 10, animate: true });
+  }, [validSites]);
+
+  useEffect(() => {
+    fitSitesRef.current = fitAllSites;
+  }, [fitAllSites]);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || validSites.length === 0) return;
+    const timer = window.setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+      fitAllSites();
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [fitAllSites, mapReady, validSites.length]);
 
   // Single fly-to motion respecting prefers-reduced-motion
   useEffect(() => {
@@ -202,12 +258,38 @@ export default function ExploreMap({
   }, [flyToSite]);
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full min-h-[420px] overflow-hidden bg-stone">
       <div
         ref={mapContainerRef}
-        className="w-full h-full z-0 bg-stone"
+        className="w-full h-full min-h-[420px] z-0 bg-stone"
+        style={{ height: "100%", minHeight: "420px" }}
         aria-label="Interactive map of heritage sites"
       />
+      <div className="absolute left-4 top-4 z-[400] flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => fitSitesRef.current?.()}
+          disabled={validSites.length === 0}
+          className="rounded-full border border-sandstone bg-paper px-4 py-2 text-sm font-semibold text-indigo shadow-lg transition hover:bg-stone disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Fit all sites
+        </button>
+        {mapError && (
+          <div
+            role="alert"
+            className="max-w-[260px] rounded-lg border border-terracotta/40 bg-paper px-3 py-2 text-xs leading-5 text-ink shadow-lg"
+          >
+            {mapError}
+          </div>
+        )}
+      </div>
+      {validSites.length === 0 && (
+        <div className="absolute inset-0 z-[400] flex items-center justify-center bg-paper/90 p-6 text-center">
+          <p className="max-w-xs text-sm text-ink">
+            No sites with valid coordinates match the current filters.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

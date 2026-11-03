@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <rect width="1200" height="800" fill="#E8EAE6"/>
+  <rect x="100" y="80" width="1000" height="640" fill="#F7F8F5" stroke="#B3A184" stroke-width="4"/>
+  <!-- Shikhara and stepped Surya Kund tank -->
+  <polygon points="600,140 500,320 700,320" fill="none" stroke="#25305E" stroke-width="6"/>
+  <rect x="460" y="320" width="280" height="120" fill="none" stroke="#25305E" stroke-width="5"/>
+  <!-- Torana arch and stepped reservoir -->
+  <path d="M 400 480 Q 600 380 800 480" fill="none" stroke="#8A5A00" stroke-width="4"/>
+  <polygon points="600,480 350,620 850,620" fill="#17695B" opacity="0.4"/>
+  <text x="600" y="70" font-family="serif" font-size="28" font-weight="bold" fill="#25305E" text-anchor="middle">Sun Temple, Modhera - Sabha Mandapa &amp; Kund</text>
+  <rect x="350" y="680" width="500" height="40" rx="6" fill="#1A1D26" opacity="0.85"/>
+  <text x="600" y="705" font-family="sans-serif" font-size="16" fill="#F7F8F5" text-anchor="middle">[Placeholder Image &bull; Mock Dataset &bull; No Invented Photo]</text>
+</svg>

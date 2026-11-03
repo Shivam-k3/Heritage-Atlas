@@ -6,3 +6,4 @@ pgvector
 numpy
 pillow
 python-dotenv
+google-genai

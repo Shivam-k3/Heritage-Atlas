@@ -1,13 +1,27 @@
 import type {
   AddTagResponse,
+  AIChatMessage,
+  AIChatResponse,
+  AddTrailStopInput,
+  CreateTrailInput,
   GetSitesParams,
   ImageSearchResult,
   JobStatusResponse,
+  RelatedSite,
+  ReviewHistoryEntry,
   ReviewQueueItem,
   ReviewTagResponse,
   SiteDetail,
   SiteSummary,
+  TagStatus,
   TextSearchResult,
+  Trail,
+  TrailFromImagesInput,
+  TrailFromImagesResult,
+  TrailJournal,
+  TrailStop,
+  TrailSummary,
+  UpdateTrailInput,
   UploadResponse,
 } from "./types";
 import { MOCK_SITES } from "./mocks/sites";
@@ -95,6 +109,23 @@ export function filterSitesClientSide(
 }
 
 /**
+ * Pure helper: moves one stop id up or down. Returns the original order when the
+ * move would fall outside the list.
+ */
+export function moveStopIds(
+  stopIds: number[],
+  stopId: number,
+  direction: -1 | 1
+): number[] {
+  const from = stopIds.indexOf(stopId);
+  const to = from + direction;
+  if (from === -1 || to < 0 || to >= stopIds.length) return [...stopIds];
+  const next = [...stopIds];
+  [next[from], next[to]] = [next[to], next[from]];
+  return next;
+}
+
+/**
  * Internal request helper
  */
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -102,6 +133,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(url, {
+      cache: "no-store",
       headers: {
         Accept: "application/json",
         ...init?.headers,
@@ -151,6 +183,7 @@ export async function getSites(params?: GetSitesParams): Promise<SiteSummary[]> 
       const reg = params.region.toLowerCase();
       filtered = filtered.filter((s) => s.region.toLowerCase() === reg);
     }
+
     if (params?.category) {
       const cat = params.category.toLowerCase();
       filtered = filtered.filter((s) => s.category.toLowerCase() === cat);
@@ -174,6 +207,24 @@ export async function getSites(params?: GetSitesParams): Promise<SiteSummary[]> 
   if (params?.region) query.set("region", params.region);
   const qs = query.toString();
   return fetchJson<SiteSummary[]>(`/sites${qs ? `?${qs}` : ""}`);
+}
+
+export async function askHeritage(
+  question: string,
+  history: AIChatMessage[] = [],
+  siteId?: number,
+  imageId?: number
+): Promise<AIChatResponse> {
+  return fetchJson<AIChatResponse>("/ai/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question,
+      history: history.slice(-10),
+      site_id: siteId ?? null,
+      image_id: imageId ?? null,
+    }),
+  });
 }
 
 /**
@@ -342,6 +393,8 @@ export async function uploadImage(data: FormData): Promise<UploadResponse> {
       image_id: randomImgId,
       job_id: randomJobId,
       status: "queued",
+      duplicate: false,
+      url: "/placeholders/stepwell-rani.svg",
     };
   }
 
@@ -386,20 +439,88 @@ export async function getJob(id: number): Promise<JobStatusResponse> {
 }
 
 /**
- * GET /review/queue?limit=50
+ * GET /review/queue?limit=50&status=auto
  */
-export async function getReviewQueue(limit = 50): Promise<ReviewQueueItem[]> {
+export async function getReviewQueue(
+  limit = 50,
+  status: TagStatus = "auto"
+): Promise<ReviewQueueItem[]> {
   if (USE_MOCKS) {
     await new Promise((r) => setTimeout(r, 50));
+    if (status !== "auto") return [];
     const mockQueue: ReviewQueueItem[] = [
-      { id: 9, image_id: 101, label: "jali work", tag_type: "feature" as const, score: 0.23 },
-      { id: 8, image_id: 102, label: "stringcourse frieze", tag_type: "feature" as const, score: 0.58 },
-      { id: 12, image_id: 103, label: "sculptured plinth", tag_type: "feature" as const, score: 0.64 },
+      {
+        id: 9,
+        image_id: 101,
+        site_id: 1,
+        site_name: "Rani ki Vav",
+        label: "jali work",
+        tag_type: "feature",
+        score: 0.23,
+        status: "auto",
+        created_at: "2026-11-01T10:00:00Z",
+        url: "/placeholders/stepwell-rani.svg",
+        author: "[Placeholder Contributor]",
+        licence: "Placeholder (CC BY-SA 4.0)",
+      },
+      {
+        id: 8,
+        image_id: 102,
+        site_id: 2,
+        site_name: "Adalaj Stepwell",
+        label: "stringcourse frieze",
+        tag_type: "feature",
+        score: 0.58,
+        status: "auto",
+        created_at: "2026-11-01T10:00:00Z",
+        url: "/placeholders/stepwell-adalaj.svg",
+        author: "[Placeholder Contributor]",
+        licence: "Placeholder (CC BY-SA 4.0)",
+      },
+      {
+        id: 12,
+        image_id: 103,
+        site_id: 3,
+        site_name: "Sun Temple, Modhera",
+        label: "sculptured plinth",
+        tag_type: "feature",
+        score: 0.64,
+        status: "auto",
+        created_at: "2026-11-01T10:00:00Z",
+        url: "/placeholders/stepwell-rani.svg",
+        author: "[Placeholder Contributor]",
+        licence: "Placeholder (CC BY-SA 4.0)",
+      },
     ];
     return mockQueue.slice(0, limit);
   }
 
-  return fetchJson<ReviewQueueItem[]>(`/review/queue?limit=${limit}`);
+  const query = new URLSearchParams({ limit: String(limit), status });
+  return fetchJson<ReviewQueueItem[]>(`/review/queue?${query.toString()}`);
+}
+
+/**
+ * GET /review/reviewers
+ */
+export async function getReviewers(): Promise<string[]> {
+  if (USE_MOCKS) {
+    await new Promise((r) => setTimeout(r, 30));
+    return ["asha", "ravi", "guest"];
+  }
+  return fetchJson<string[]>("/review/reviewers");
+}
+
+/**
+ * GET /review/history/{image_tag_id}
+ */
+export async function getReviewHistory(
+  imageTagId: number
+): Promise<ReviewHistoryEntry[]> {
+  if (USE_MOCKS) {
+    await new Promise((r) => setTimeout(r, 30));
+    return [];
+  }
+  return fetchJson<ReviewHistoryEntry[]>(`/review/history/${imageTagId}`);
 }
 
 /**
@@ -412,9 +533,12 @@ export async function reviewTag(
 ): Promise<ReviewTagResponse> {
   if (USE_MOCKS) {
     await new Promise((r) => setTimeout(r, 60));
+    const status = action === "confirm" ? "verified" : "rejected";
     return {
       id: imageTagId,
-      status: action === "confirm" ? "verified" : "rejected",
+      status,
+      previous_status: "auto",
+      new_status: status,
     };
   }
 
@@ -438,6 +562,8 @@ export async function addTag(
     return {
       id: Math.floor(Math.random() * 500) + 50,
       status: "added_by_human",
+      previous_status: null,
+      new_status: "added_by_human",
     };
   }
 
@@ -446,4 +572,132 @@ export async function addTag(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ image_id: imageId, label, reviewer }),
   });
+}
+
+/**
+ * GET /sites/{id}/related
+ */
+export async function getRelatedSites(
+  siteId: number,
+  k = 5
+): Promise<RelatedSite[]> {
+  return fetchJson<RelatedSite[]>(`/sites/${siteId}/related?k=${k}`);
+}
+
+/**
+ * GET /trails
+ */
+export async function getTrails(params?: {
+  created_by?: string;
+  is_public?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<Trail[]> {
+  const query = new URLSearchParams();
+  if (params?.created_by) query.set("created_by", params.created_by);
+  if (typeof params?.is_public === "boolean") {
+    query.set("is_public", String(params.is_public));
+  }
+  query.set("limit", String(params?.limit ?? 50));
+  query.set("offset", String(params?.offset ?? 0));
+  return fetchJson<Trail[]>(`/trails?${query.toString()}`);
+}
+
+/**
+ * GET /trails/{id}
+ */
+export async function getTrail(trailId: number): Promise<Trail> {
+  return fetchJson<Trail>(`/trails/${trailId}`);
+}
+
+/**
+ * POST /trails
+ */
+export async function createTrail(input: CreateTrailInput): Promise<Trail> {
+  return fetchJson<Trail>("/trails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * PATCH /trails/{id}
+ */
+export async function updateTrail(
+  trailId: number,
+  input: UpdateTrailInput
+): Promise<Trail> {
+  return fetchJson<Trail>(`/trails/${trailId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * POST /trails/{id}/stops
+ */
+export async function addTrailStop(
+  trailId: number,
+  input: AddTrailStopInput
+): Promise<TrailStop> {
+  return fetchJson<TrailStop>(`/trails/${trailId}/stops`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * DELETE /trails/{id}/stops/{stop_id}
+ */
+export async function removeTrailStop(
+  trailId: number,
+  stopId: number
+): Promise<TrailStop[]> {
+  return fetchJson<TrailStop[]>(`/trails/${trailId}/stops/${stopId}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * PATCH /trails/{id}/stops/reorder
+ */
+export async function reorderTrailStops(
+  trailId: number,
+  stopIds: number[]
+): Promise<TrailStop[]> {
+  return fetchJson<TrailStop[]>(`/trails/${trailId}/stops/reorder`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stop_ids: stopIds }),
+  });
+}
+
+/**
+ * POST /trails/from-images
+ */
+export async function createTrailFromImages(
+  input: TrailFromImagesInput
+): Promise<TrailFromImagesResult> {
+  return fetchJson<TrailFromImagesResult>("/trails/from-images", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * GET /trails/{id}/summary
+ */
+export async function getTrailSummary(trailId: number): Promise<TrailSummary> {
+  return fetchJson<TrailSummary>(`/trails/${trailId}/summary`);
+}
+
+/**
+ * GET /trails/{id}/journal
+ */
+export async function getTrailJournal(trailId: number): Promise<TrailJournal> {
+  return fetchJson<TrailJournal>(`/trails/${trailId}/journal`);
 }

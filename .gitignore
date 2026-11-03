@@ -1,4 +1,10 @@
 __pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
 .venv/
 node_modules/
 .env
@@ -7,4 +13,11 @@ uploads/*
 .next/
 data/raw/
 data/dataset/*.log
+data/dataset/checkpoint.json
+data/dataset/eval_review_stats.json
+backend/.mypy_cache/
+backend/.pytest_cache/
+backend/.ruff_cache/
+frontend/.next/
+frontend/.tsbuildinfo
 backend/tests/.uploads/

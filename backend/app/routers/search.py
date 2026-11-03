@@ -60,7 +60,10 @@ def search_text(
     k: Annotated[int, Query(ge=1, le=100)] = 10,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[dict]:
-    embedding = ml.embed_text(_query(q))
+    try:
+        embedding = ml.embed_text(_query(q))
+    except ml.ModelUnavailableError as exc:
+        raise HTTPException(status_code=503, detail="text search model unavailable") from exc
     with connect() as conn:
         return search_repo.search_sites(
             conn,
@@ -86,7 +89,10 @@ def search_images(
     k: Annotated[int, Query(ge=1, le=100)] = 10,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[dict]:
-    embedding = ml.embed_clip_text(_query(q))
+    try:
+        embedding = ml.embed_clip_text(_query(q))
+    except ml.ModelUnavailableError as exc:
+        raise HTTPException(status_code=503, detail="image search model unavailable") from exc
     with connect() as conn:
         rows = search_repo.search_images(
             conn,
@@ -133,6 +139,8 @@ def search_by_image(
         embedding = ml.embed_image(io.BytesIO(payload))
     except ml.InvalidImageError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ml.ModelUnavailableError as exc:
+        raise HTTPException(status_code=503, detail="image search model unavailable") from exc
 
     sha256 = hashlib.sha256(payload).hexdigest()
     with connect() as conn:

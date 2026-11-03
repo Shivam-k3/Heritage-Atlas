@@ -30,12 +30,12 @@ Scores are shown as raw similarity with a tooltip: "Similarity to the label, not
 ## 4. Colour tokens
 | Token | Hex | Use |
 |---|---|---|
-| `--stone` | #E8EAE6 | page background (cool limestone) |
-| `--paper` | #F7F8F5 | panels, inputs |
-| `--ink` | #1A1D26 | body text |
-| `--indigo` | #25305E | primary actions, headings, selected map pin |
-| `--sandstone` | #B3A184 | rules, field-note bar, borders |
-| `--water` | #17695B | verified, success |
+| `--stone` | #171815 | page background (charcoal) |
+| `--paper` | #22231F | panels, inputs |
+| `--ink` | #F7F2E8 | body text |
+| `--indigo` | #B66B4E | primary actions, headings, selected map pin |
+| `--sandstone` | #5D5E57 | rules, field-note bar, borders |
+| `--water` | #6FAF8E | verified, success |
 | `--turmeric` | #8A5A00 | AI-suggested text and outline (decorative fill #D49A1E) |
 | `--clay-red` | #9B2C2C | errors and destructive actions |
 | `--mute` | #5E6472 | secondary text |
@@ -43,8 +43,8 @@ Contrast: text and interactive elements must reach 4.5:1 (3:1 for large text and
 Dark mode is not in the MVP.
 
 ```css
-:root{--stone:#E8EAE6;--paper:#F7F8F5;--ink:#1A1D26;--indigo:#25305E;--sandstone:#B3A184;
---water:#17695B;--turmeric:#8A5A00;--clay-red:#9B2C2C;--mute:#5E6472;}
+:root{--stone:#171815;--paper:#22231F;--ink:#F7F2E8;--indigo:#B66B4E;--sandstone:#5D5E57;
+--water:#6FAF8E;--turmeric:#8A5A00;--clay-red:#E7AE98;--mute:#B8B3A7;}
 ```
 
 ## 5. Typography

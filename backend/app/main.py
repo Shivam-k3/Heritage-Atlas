@@ -1,6 +1,8 @@
 """Heritage Atlas FastAPI application. Route handlers stay thin; SQL lives in repositories."""
 
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Request
@@ -9,15 +11,32 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config, db, ml
-from .routers import images, ingestion, jobs, review, search, sites, trails, users
-from .schemas import HealthOut
+from .routers import ai, images, ingestion, jobs, review, search, sites, trails, users
+from .schemas import HealthOut, ReadinessOut
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("heritage_atlas")
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    readiness = await asyncio.to_thread(ml.warm_up)
+    for name, state in readiness.items():
+        if state["loaded"]:
+            logger.info(
+                "%s model ready in %.3fs",
+                name,
+                state["initialization_seconds"],
+            )
+        else:
+            logger.error("%s model unavailable: %s", name, state["error"])
+    yield
+
+
 app = FastAPI(
     title=config.API_TITLE,
     version=config.API_VERSION,
+    lifespan=lifespan,
     description=(
         "AI-assisted heritage archive. CLIP (512-d) and MiniLM (384-d) are separate "
         "embedding spaces; scores are raw cosine similarities, not probabilities."
@@ -44,6 +63,7 @@ for router in (
     ingestion.router,
     trails.router,
     users.router,
+    ai.router,
 ):
     app.include_router(router)
 
@@ -56,6 +76,22 @@ def health() -> dict:
         logger.warning("health check database error: %s", exc)
         raise HTTPException(status_code=503, detail="database unavailable") from exc
     return {"status": "ok", "database": "ok", "models": ml.model_info()}
+
+
+@app.get("/readiness", response_model=ReadinessOut, tags=["health"])
+def readiness() -> dict:
+    try:
+        database_ok = db.ping()
+    except psycopg.Error as exc:
+        logger.warning("readiness database error: %s", exc)
+        database_ok = False
+    models = ml.model_readiness()
+    models_ready = all(state["loaded"] for state in models.values())
+    return {
+        "status": "ready" if database_ok and models_ready else "not_ready",
+        "database": "ok" if database_ok else "unavailable",
+        "models": models,
+    }
 
 
 @app.exception_handler(psycopg.errors.IntegrityError)

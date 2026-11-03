@@ -30,9 +30,10 @@ export interface PhotoUploadProgress {
   file: File;
   previewUrl: string;
   status: UploadItemStatus;
-  jobId?: number;
+  jobId?: number | null;
   siteId?: number;
   error?: string;
+  note?: string;
 }
 
 export default function UploadPage() {
@@ -98,7 +99,9 @@ export default function UploadPage() {
   };
 
   // Poll /jobs/{id} every 2 seconds per Task 7
-  const pollJobStatus = async (jobId: number): Promise<"done" | "failed"> => {
+  const pollJobStatus = async (
+    jobId: number
+  ): Promise<"done" | "failed" | "timeout"> => {
     const maxPolls = 30; // 60 seconds maximum
     for (let attempt = 0; attempt < maxPolls; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -114,7 +117,7 @@ export default function UploadPage() {
         // Continue polling if transient failure
       }
     }
-    return "done"; // Fallback after timeout
+    return "timeout";
   };
 
   // Sequential upload handler: uploads one photo at a time per Task 7
@@ -147,7 +150,7 @@ export default function UploadPage() {
       }
 
       setIsSubmitting(true);
-      setGlobalMessage("Photo uploaded. Analysing now.");
+      setGlobalMessage("Uploading photos...");
 
       // Initialize queue
       const initialQueue: PhotoUploadProgress[] = files.map((f, idx) => ({
@@ -184,6 +187,30 @@ export default function UploadPage() {
           // POST /images/upload
           const uploadRes = await uploadImage(formData);
 
+          // A duplicate that is already processed has no new job to poll.
+          if (uploadRes.job_id === null) {
+            const alreadyProcessed =
+              uploadRes.duplicate && uploadRes.status !== "queued";
+            setUploadQueue((prev) =>
+              prev.map((q) =>
+                q.id === item.id
+                  ? {
+                      ...q,
+                      status: alreadyProcessed ? "done" : "failed",
+                      siteId: uploadRes.site_id,
+                      note: alreadyProcessed
+                        ? "Already archived — reused the stored photo."
+                        : undefined,
+                      error: alreadyProcessed
+                        ? undefined
+                        : "No analysis job was queued for this photo.",
+                    }
+                  : q
+              )
+            );
+            continue;
+          }
+
           // Update status to Analysing and record jobId & siteId
           setUploadQueue((prev) =>
             prev.map((q) =>
@@ -198,7 +225,7 @@ export default function UploadPage() {
             )
           );
 
-          // Poll /jobs/{id} every 2 s until done or failed
+          // Poll /jobs/{id} every 2 s until done, failed or timed out
           const pollResult = await pollJobStatus(uploadRes.job_id);
 
           setUploadQueue((prev) =>
@@ -207,10 +234,15 @@ export default function UploadPage() {
                 ? {
                     ...q,
                     status: pollResult === "done" ? "done" : "failed",
+                    note: uploadRes.duplicate
+                      ? "Already archived — reused the stored photo."
+                      : undefined,
                     error:
                       pollResult === "failed"
                         ? "Feature analysis could not complete."
-                        : undefined,
+                        : pollResult === "timeout"
+                          ? "Analysis is taking longer than expected. Open the site later to check its tags."
+                          : undefined,
                   }
                 : q
             )
@@ -234,6 +266,9 @@ export default function UploadPage() {
       }
 
       setIsSubmitting(false);
+      setGlobalMessage(
+        "Upload finished. Check each photo's analysis status below."
+      );
     },
     [
       files,
@@ -617,6 +652,11 @@ export default function UploadPage() {
                       <div className="type-caption text-mute">
                         {(item.file.size / 1024).toFixed(0)} KB
                       </div>
+                      {item.note && (
+                        <div className="type-caption text-mute italic">
+                          {item.note}
+                        </div>
+                      )}
                     </div>
                   </div>
 

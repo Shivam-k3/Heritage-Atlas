@@ -1,16 +1,51 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { ProvenanceChip } from "@/components/ProvenanceChip";
-import { getReviewQueue, reviewTag, addTag, resolveImageUrl } from "@/lib/api";
-import type { ReviewQueueItem } from "@/lib/types";
+import {
+  addTag,
+  getReviewers,
+  getReviewHistory,
+  getReviewQueue,
+  resolveImageUrl,
+  reviewTag,
+} from "@/lib/api";
+import type {
+  ReviewHistoryEntry,
+  ReviewQueueItem,
+  TagStatus,
+} from "@/lib/types";
+
+const STATUS_TABS: { value: TagStatus; label: string }[] = [
+  { value: "auto", label: "Pending" },
+  { value: "verified", label: "Verified" },
+  { value: "rejected", label: "Rejected" },
+  { value: "added_by_human", label: "Human-added" },
+];
+
+function formatTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function statusLabel(status: string): string {
+  return status.replace(/_/g, " ");
+}
 
 export default function ReviewPage() {
   const [queue, setQueue] = useState<ReviewQueueItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<TagStatus>("auto");
+  const [reloadKey, setReloadKey] = useState<number>(0);
+
+  const [reviewers, setReviewers] = useState<string[]>([]);
+  const [reviewersError, setReviewersError] = useState<string | null>(null);
+  const [reviewer, setReviewer] = useState<string>("");
 
   const [isActing, setIsActing] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -19,23 +54,54 @@ export default function ReviewPage() {
   // Add tag modal state
   const [showAddTag, setShowAddTag] = useState<boolean>(false);
   const [addTagLabel, setAddTagLabel] = useState<string>("");
-  const [addTagReviewer, setAddTagReviewer] = useState<string>("");
   const [addTagError, setAddTagError] = useState<string | null>(null);
-
-  // Reviewer name persisted per session
-  const [reviewer, setReviewer] = useState<string>("");
-  const [showReviewerInput, setShowReviewerInput] = useState<boolean>(false);
   const addTagLabelRef = useRef<HTMLInputElement>(null);
 
-  // Load queue on mount
+  // Append-only history for one tag
+  const [historyTagId, setHistoryTagId] = useState<number | null>(null);
+  const [history, setHistory] = useState<ReviewHistoryEntry[] | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  const [failedImageIds, setFailedImageIds] = useState<Set<number>>(
+    () => new Set()
+  );
+
+  // Load the fixed demo reviewer identifiers
   useEffect(() => {
     let ignore = false;
-    async function load() {
+    getReviewers()
+      .then((data) => {
+        if (ignore) return;
+        setReviewers(data);
+        setReviewer((current) => current || data[0] || "");
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          setReviewersError(
+            err instanceof Error
+              ? err.message
+              : "Could not load the reviewer list."
+          );
+        }
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  // Load the queue for the selected status
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadQueue() {
+      setIsLoading(true);
+      setLoadError(null);
       try {
-        const data = await getReviewQueue(50);
+        const data = await getReviewQueue(50, statusFilter);
         if (!ignore) {
           setQueue(data);
-          setIsLoading(false);
+          setCurrentIndex(0);
         }
       } catch (err: unknown) {
         if (!ignore) {
@@ -44,15 +110,17 @@ export default function ReviewPage() {
               ? err.message
               : "Could not load the review queue. Check your connection."
           );
-          setIsLoading(false);
         }
+      } finally {
+        if (!ignore) setIsLoading(false);
       }
     }
-    void load();
+
+    void loadQueue();
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [statusFilter, reloadKey]);
 
   // Focus add-tag label input when modal opens
   useEffect(() => {
@@ -64,69 +132,88 @@ export default function ReviewPage() {
   const currentItem: ReviewQueueItem | undefined = queue[currentIndex];
   const totalItems = queue.length;
 
-  const handleConfirm = useCallback(async () => {
-    if (!currentItem) return;
-    if (!reviewer.trim()) {
-      setShowReviewerInput(true);
-      return;
-    }
-    setIsActing(true);
-    setActionError(null);
-    setActionSuccess(null);
+  const loadHistory = useCallback(async (tagId: number) => {
+    setHistoryTagId(tagId);
+    setHistory(null);
+    setHistoryError(null);
+    setIsLoadingHistory(true);
     try {
-      await reviewTag(currentItem.id, "confirm", reviewer.trim());
-      setActionSuccess(`Tag "${currentItem.label}" confirmed.`);
-      setCurrentIndex((i) => Math.min(i + 1, totalItems - 1));
+      const rows = await getReviewHistory(tagId);
+      setHistory(rows);
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Action failed. Try again.");
+      setHistoryError(
+        err instanceof Error ? err.message : "Could not load review history."
+      );
     } finally {
-      setIsActing(false);
+      setIsLoadingHistory(false);
     }
-  }, [currentItem, reviewer, totalItems]);
+  }, []);
 
-  const handleReject = useCallback(async () => {
-    if (!currentItem) return;
-    if (!reviewer.trim()) {
-      setShowReviewerInput(true);
-      return;
-    }
-    setIsActing(true);
-    setActionError(null);
-    setActionSuccess(null);
-    try {
-      await reviewTag(currentItem.id, "reject", reviewer.trim());
-      setActionSuccess(`Tag "${currentItem.label}" rejected.`);
-      setCurrentIndex((i) => Math.min(i + 1, totalItems - 1));
-    } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Action failed. Try again.");
-    } finally {
-      setIsActing(false);
-    }
-  }, [currentItem, reviewer, totalItems]);
+  const handleReview = useCallback(
+    async (action: "confirm" | "reject") => {
+      if (!currentItem) return;
+      if (!reviewer) {
+        setActionError("Pick a reviewer before acting.");
+        return;
+      }
+
+      setIsActing(true);
+      setActionError(null);
+      setActionSuccess(null);
+      try {
+        await reviewTag(currentItem.id, action, reviewer);
+        setActionSuccess(
+          `Tag "${currentItem.label}" ${
+            action === "confirm" ? "verified" : "rejected"
+          }.`
+        );
+        await loadHistory(currentItem.id);
+        setReloadKey((value) => value + 1);
+      } catch (err: unknown) {
+        setActionError(
+          err instanceof Error ? err.message : "Action failed. Try again."
+        );
+      } finally {
+        setIsActing(false);
+      }
+    },
+    [currentItem, reviewer, loadHistory]
+  );
 
   const handleAddTag = useCallback(async () => {
     if (!currentItem) return;
     const label = addTagLabel.trim();
-    const rev = addTagReviewer.trim() || reviewer.trim();
-    if (!label) { setAddTagError("Label is required."); return; }
-    if (!rev) { setAddTagError("Reviewer name is required."); return; }
+    if (!label) {
+      setAddTagError("Label is required.");
+      return;
+    }
+    if (!reviewer) {
+      setAddTagError("Pick a reviewer before adding a tag.");
+      return;
+    }
+
     setIsActing(true);
     setAddTagError(null);
     try {
-      await addTag(currentItem.image_id, label, rev);
-      setActionSuccess(`Tag "${label}" added.`);
+      const result = await addTag(currentItem.image_id, label, reviewer);
+      setActionSuccess(`Tag "${label}" added as human-confirmed.`);
       setShowAddTag(false);
       setAddTagLabel("");
-      setAddTagReviewer("");
-      setCurrentIndex((i) => Math.min(i + 1, totalItems - 1));
+      await loadHistory(result.id);
+      setReloadKey((value) => value + 1);
     } catch (err: unknown) {
-      setAddTagError(err instanceof Error ? err.message : "Could not add tag. Try again.");
+      setAddTagError(
+        err instanceof Error ? err.message : "Could not add tag. Try again."
+      );
     } finally {
       setIsActing(false);
     }
-  }, [currentItem, addTagLabel, addTagReviewer, reviewer, totalItems]);
+  }, [currentItem, addTagLabel, reviewer, loadHistory]);
 
-  const isAllDone = totalItems > 0 && currentIndex >= totalItems;
+  const emptyMessage =
+    statusFilter === "auto"
+      ? "All AI-suggested tags have been reviewed. Check back after new photos are uploaded."
+      : `No tags with status "${statusLabel(statusFilter)}" are available.`;
 
   return (
     <div className="min-h-screen bg-stone flex flex-col">
@@ -135,54 +222,73 @@ export default function ReviewPage() {
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 sm:px-6 md:py-10 space-y-8">
         {/* Header */}
         <div>
-          <h1 className="type-h1 text-indigo font-serif font-semibold">Review queue</h1>
+          <h1 className="type-h1 text-indigo font-serif font-semibold">
+            Review queue
+          </h1>
           <p className="type-body text-mute mt-1">
             Human verification queue sorted by lowest similarity score first.
-            Decisions are append-only — original field records are never overwritten.
+            Decisions are append-only — original field records are never
+            overwritten.
           </p>
         </div>
 
-        {/* Reviewer name prompt */}
-        {showReviewerInput && (
-          <div className="bg-paper p-5 rounded-[10px] border border-indigo/30 space-y-3">
-            <p className="type-small font-semibold text-ink">
-              Please enter your reviewer name before acting:
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
+        {/* Reviewer select */}
+        <div className="bg-paper p-4 rounded-[10px] border border-sandstone space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="space-y-1 sm:max-w-xs w-full">
+              <label
+                htmlFor="reviewer-select"
+                className="type-caption font-semibold text-ink block"
+              >
+                Reviewing as
+              </label>
+              <select
+                id="reviewer-select"
                 value={reviewer}
                 onChange={(e) => setReviewer(e.target.value)}
-                placeholder="E.g. Dr. K. Mehta"
-                autoFocus
-                className="flex-1 bg-stone/40 border border-sandstone rounded-[6px] px-3.5 py-2 type-body text-ink placeholder:text-mute focus-ring"
-              />
-              <button
-                type="button"
-                onClick={() => setShowReviewerInput(false)}
-                disabled={!reviewer.trim()}
-                className="px-5 py-2 bg-indigo text-paper rounded-[6px] type-small font-semibold focus-ring hover:bg-indigo/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={reviewers.length === 0}
+                className="w-full bg-stone/40 border border-sandstone rounded-[6px] px-3.5 py-2 type-small text-ink focus-ring disabled:opacity-50"
               >
-                Save
-              </button>
+                {reviewers.length === 0 && (
+                  <option value="">Loading reviewers...</option>
+                )}
+                {reviewers.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
             </div>
+            <p className="type-caption text-mute sm:pb-2">
+              Demo audit label only — not authentication. Reviewer identity can
+              be impersonated until real auth is added.
+            </p>
           </div>
-        )}
+          {reviewersError && (
+            <p className="type-small text-clay-red font-semibold">
+              Reviewer list unavailable: {reviewersError}
+            </p>
+          )}
+        </div>
 
-        {/* Reviewer name display */}
-        {reviewer && !showReviewerInput && (
-          <div className="flex items-center gap-2 type-caption text-mute">
-            <span>Reviewing as:</span>
-            <span className="font-semibold text-ink">{reviewer}</span>
+        {/* Status tabs */}
+        <div className="flex flex-wrap gap-1 bg-paper p-2 rounded-[8px] border border-sandstone">
+          {STATUS_TABS.map((tab) => (
             <button
+              key={tab.value}
               type="button"
-              onClick={() => setShowReviewerInput(true)}
-              className="text-indigo hover:underline focus-ring rounded px-1"
+              onClick={() => setStatusFilter(tab.value)}
+              aria-pressed={statusFilter === tab.value}
+              className={`px-3 py-1.5 rounded-[6px] type-caption font-semibold transition-colors focus-ring ${
+                statusFilter === tab.value
+                  ? "bg-indigo text-paper"
+                  : "text-ink hover:bg-stone/60"
+              }`}
             >
-              Change
+              {tab.label}
             </button>
-          </div>
-        )}
+          ))}
+        </div>
 
         {/* Loading skeleton */}
         {isLoading && (
@@ -202,28 +308,24 @@ export default function ReviewPage() {
             <h2 className="type-h2 text-clay-red">Queue unavailable</h2>
             <p className="type-body text-ink">{loadError}</p>
             <div className="type-caption text-mute">
-              Verify that the backend is running and NEXT_PUBLIC_API_URL is configured.
+              Verify that the backend is running and NEXT_PUBLIC_API_URL is
+              configured.
             </div>
+            <button
+              type="button"
+              onClick={() => setReloadKey((value) => value + 1)}
+              className="px-4 py-2 bg-indigo text-paper rounded-[6px] type-small font-semibold focus-ring"
+            >
+              Retry
+            </button>
           </div>
         )}
 
         {/* Empty queue */}
         {!isLoading && !loadError && totalItems === 0 && (
           <div className="bg-paper p-8 rounded-[10px] border border-sandstone text-center space-y-3">
-            <h2 className="type-h2 text-indigo">Queue is clear</h2>
-            <p className="type-body text-mute">
-              All AI-suggested tags have been reviewed. Check back after new photos are uploaded.
-            </p>
-          </div>
-        )}
-
-        {/* All items reviewed */}
-        {!isLoading && !loadError && isAllDone && (
-          <div className="bg-paper p-8 rounded-[10px] border border-water/40 text-center space-y-3">
-            <h2 className="type-h2 text-water">Review session complete</h2>
-            <p className="type-body text-mute">
-              You&apos;ve reviewed all {totalItems} items in this session.
-            </p>
+            <h2 className="type-h2 text-indigo">Nothing to show</h2>
+            <p className="type-body text-mute">{emptyMessage}</p>
           </div>
         )}
 
@@ -231,7 +333,14 @@ export default function ReviewPage() {
         {actionSuccess && (
           <div className="bg-water/10 border border-water text-water p-4 rounded-[6px] type-small font-medium flex items-center justify-between">
             <span>{actionSuccess}</span>
-            <button type="button" onClick={() => setActionSuccess(null)} className="text-water text-lg leading-none ml-3">&times;</button>
+            <button
+              type="button"
+              onClick={() => setActionSuccess(null)}
+              aria-label="Dismiss success message"
+              className="text-water text-lg leading-none ml-3"
+            >
+              &times;
+            </button>
           </div>
         )}
         {actionError && (
@@ -241,39 +350,58 @@ export default function ReviewPage() {
         )}
 
         {/* Review card */}
-        {!isLoading && !loadError && currentItem && !isAllDone && (
+        {!isLoading && !loadError && currentItem && (
           <>
             {/* Progress bar */}
             <div className="flex items-center gap-3 type-caption text-mute">
-              <span className="tabular-nums">Item {currentIndex + 1} of {totalItems}</span>
+              <span className="tabular-nums">
+                Item {currentIndex + 1} of {totalItems}
+              </span>
               <div className="flex-1 h-1.5 bg-stone rounded-full overflow-hidden">
                 <div
                   className="h-full bg-indigo rounded-full transition-all duration-300"
-                  style={{ width: `${((currentIndex + 1) / totalItems) * 100}%` }}
+                  style={{
+                    width: `${((currentIndex + 1) / totalItems) * 100}%`,
+                  }}
                 />
               </div>
-              <span className="tabular-nums">{Math.round(((currentIndex + 1) / totalItems) * 100)}%</span>
+              <span className="tabular-nums">
+                {Math.round(((currentIndex + 1) / totalItems) * 100)}%
+              </span>
             </div>
 
             <div className="bg-paper rounded-[10px] border border-sandstone overflow-hidden">
               {/* Card header */}
-              <div className="border-b border-sandstone px-6 py-4 flex flex-wrap items-start justify-between gap-3">
+              <div className="border-b border-sandstone px-4 sm:px-6 py-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-0.5">
                   <span className="type-caption text-mute block">
                     Tag #{currentItem.id} &middot; Image #{currentItem.image_id}
                   </span>
                   <h2 className="type-h2 text-indigo">Tag verification</h2>
                 </div>
-                <ProvenanceChip status="suggested" score={currentItem.score} label={currentItem.label} />
+                <ProvenanceChip
+                  status={currentItem.status}
+                  score={currentItem.score}
+                  label={currentItem.label}
+                />
               </div>
 
               {/* Tag detail */}
-              <div className="px-6 py-6 space-y-5">
+              <div className="px-4 sm:px-6 py-6 space-y-5">
                 <div className="bg-stone/50 rounded-[8px] border border-sandstone p-5 space-y-2">
-                  <div className="type-caption text-mute font-semibold uppercase tracking-wide">Suggested tag</div>
-                  <div className="type-h2 text-ink">{currentItem.label}</div>
+                  <div className="type-caption text-mute font-semibold uppercase tracking-wide">
+                    {currentItem.status === "auto"
+                      ? "Suggested tag"
+                      : `Tag (${statusLabel(currentItem.status)})`}
+                  </div>
+                  <div className="type-h2 text-ink break-words">
+                    {currentItem.label}
+                  </div>
                   <div className="type-caption text-mute">
-                    Type: <span className="font-semibold capitalize">{currentItem.tag_type.replace("_", " ")}</span>
+                    Type:{" "}
+                    <span className="font-semibold capitalize">
+                      {currentItem.tag_type.replace("_", " ")}
+                    </span>
                   </div>
                 </div>
 
@@ -281,27 +409,68 @@ export default function ReviewPage() {
                   <span className="type-caption text-sandstone font-semibold uppercase tracking-wider block mb-1">
                     Raw cosine similarity score
                   </span>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="font-mono tabular-nums text-lg font-semibold text-ink">
-                      {currentItem.score.toFixed(2)}
+                      {typeof currentItem.score === "number"
+                        ? currentItem.score.toFixed(2)
+                        : "not scored"}
                     </span>
                     <span className="type-caption text-mute">
-                      Queued lowest-score-first. This is cosine similarity, not a probability.
+                      {typeof currentItem.score === "number"
+                        ? "Queued lowest-score-first. This is cosine similarity, not a probability."
+                        : "Human-added tags have no model score."}
                     </span>
                   </div>
                 </div>
 
-                {/* Linked image thumbnail (best-effort; hides on 404) */}
-                <div className="space-y-1">
-                  <div className="type-caption text-mute font-semibold">Image #{currentItem.image_id}</div>
+                {/* Linked image and attribution */}
+                <div className="space-y-2">
+                  <div className="type-caption text-mute font-semibold">
+                    Image #{currentItem.image_id}
+                  </div>
                   <div className="w-full max-w-sm aspect-video bg-stone border border-sandstone rounded-none overflow-hidden flex items-center justify-center text-mute type-caption">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={resolveImageUrl(`/files/${currentItem.image_id}.jpg`)}
-                      alt={`Image #${currentItem.image_id}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
+                    {currentItem.url &&
+                    !failedImageIds.has(currentItem.id) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={resolveImageUrl(currentItem.url)}
+                        alt={`${currentItem.site_name} — tag ${currentItem.label}`}
+                        className="w-full h-full object-cover"
+                        onError={() =>
+                          setFailedImageIds((current) => {
+                            const next = new Set(current);
+                            next.add(currentItem.id);
+                            return next;
+                          })
+                        }
+                      />
+                    ) : (
+                      <span>Image unavailable</span>
+                    )}
+                  </div>
+                  <div className="type-caption text-mute flex flex-wrap gap-x-3 gap-y-1">
+                    <Link
+                      href={`/sites/${currentItem.site_id}`}
+                      className="text-indigo font-semibold hover:underline"
+                    >
+                      {currentItem.site_name}
+                    </Link>
+                    {currentItem.author && (
+                      <span>Photo: {currentItem.author}</span>
+                    )}
+                    {currentItem.licence && (
+                      <span>Licence: {currentItem.licence}</span>
+                    )}
+                    {currentItem.source_url && (
+                      <a
+                        href={currentItem.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo hover:underline"
+                      >
+                        Source
+                      </a>
+                    )}
                   </div>
                 </div>
 
@@ -310,8 +479,8 @@ export default function ReviewPage() {
                   <button
                     type="button"
                     id="review-confirm-btn"
-                    onClick={() => void handleConfirm()}
-                    disabled={isActing}
+                    onClick={() => void handleReview("confirm")}
+                    disabled={isActing || !reviewer}
                     className="px-5 py-2 bg-water text-paper rounded-[6px] type-small font-semibold focus-ring hover:bg-water/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isActing ? "Saving..." : "Confirm"}
@@ -319,8 +488,8 @@ export default function ReviewPage() {
                   <button
                     type="button"
                     id="review-reject-btn"
-                    onClick={() => void handleReject()}
-                    disabled={isActing}
+                    onClick={() => void handleReview("reject")}
+                    disabled={isActing || !reviewer}
                     className="px-5 py-2 bg-paper text-clay-red border border-clay-red/40 rounded-[6px] type-small font-semibold focus-ring hover:bg-clay-red/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isActing ? "Saving..." : "Reject"}
@@ -328,16 +497,26 @@ export default function ReviewPage() {
                   <button
                     type="button"
                     id="review-add-tag-btn"
-                    onClick={() => { setShowAddTag(true); setAddTagError(null); }}
-                    disabled={isActing}
+                    onClick={() => {
+                      setShowAddTag(true);
+                      setAddTagError(null);
+                    }}
+                    disabled={isActing || !reviewer}
                     className="px-5 py-2 bg-stone text-ink border border-sandstone rounded-[6px] type-small font-semibold focus-ring hover:bg-paper disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Add tag
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => void loadHistory(currentItem.id)}
+                    className="px-5 py-2 bg-paper text-indigo border border-sandstone rounded-[6px] type-small font-semibold focus-ring hover:bg-stone transition-colors"
+                  >
+                    View history
+                  </button>
                   {currentIndex < totalItems - 1 && (
                     <button
                       type="button"
-                      onClick={() => setCurrentIndex((i) => i + 1)}
+                      onClick={() => setCurrentIndex((index) => index + 1)}
                       className="ml-auto px-4 py-2 text-mute type-small hover:text-ink focus-ring rounded-[6px]"
                     >
                       Skip →
@@ -347,6 +526,80 @@ export default function ReviewPage() {
               </div>
             </div>
           </>
+        )}
+
+        {/* Append-only history */}
+        {historyTagId !== null && (
+          <section
+            aria-label="Review history"
+            className="bg-paper p-5 rounded-[10px] border border-sandstone space-y-3"
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-sandstone pb-2">
+              <h2 className="type-h3 text-indigo">
+                Review history for tag #{historyTagId}
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryTagId(null);
+                  setHistory(null);
+                  setHistoryError(null);
+                }}
+                className="type-caption text-mute hover:text-ink focus-ring rounded px-1"
+              >
+                Close
+              </button>
+            </div>
+
+            {isLoadingHistory && (
+              <p className="type-small text-mute">Loading history...</p>
+            )}
+
+            {!isLoadingHistory && historyError && (
+              <p className="type-small text-clay-red font-semibold">
+                {historyError}
+              </p>
+            )}
+
+            {!isLoadingHistory &&
+              !historyError &&
+              history &&
+              history.length === 0 && (
+                <p className="type-small text-mute">
+                  No review actions recorded for this tag yet.
+                </p>
+              )}
+
+            {!isLoadingHistory &&
+              !historyError &&
+              history &&
+              history.length > 0 && (
+                <ol className="space-y-2">
+                  {history.map((entry) => (
+                    <li
+                      key={entry.id}
+                      className="border border-sandstone/70 rounded-[6px] px-3 py-2 bg-stone/30 space-y-0.5"
+                    >
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="type-small font-semibold text-ink capitalize">
+                          {entry.action}
+                        </span>
+                        <span className="type-caption text-mute">
+                          by {entry.reviewer}
+                        </span>
+                        <span className="type-caption text-mute">
+                          {statusLabel(entry.previous_status ?? "none")} →{" "}
+                          {statusLabel(entry.new_status ?? "none")}
+                        </span>
+                      </div>
+                      <time className="type-caption text-mute block">
+                        {formatTimestamp(entry.created_at)}
+                      </time>
+                    </li>
+                  ))}
+                </ol>
+              )}
+          </section>
         )}
 
         {/* Add tag modal */}
@@ -372,8 +625,9 @@ export default function ReviewPage() {
 
               <div className="type-caption text-mute">
                 Adding a human-confirmed tag to image #{currentItem.image_id}.
-                This is recorded as <span className="font-semibold">added_by_human</span> and
-                will not overwrite original field notes.
+                This is recorded as{" "}
+                <span className="font-semibold">added_by_human</span> and will
+                not overwrite original field notes.
               </div>
 
               {addTagError && (
@@ -383,7 +637,10 @@ export default function ReviewPage() {
               )}
 
               <div className="space-y-1">
-                <label htmlFor="add-tag-label" className="type-caption font-semibold text-ink block">
+                <label
+                  htmlFor="add-tag-label"
+                  className="type-caption font-semibold text-ink block"
+                >
                   Architectural tag label:
                 </label>
                 <input
@@ -394,29 +651,24 @@ export default function ReviewPage() {
                   onChange={(e) => setAddTagLabel(e.target.value)}
                   placeholder="E.g. carved jharokhas, domes, bastions..."
                   className="w-full bg-stone/40 border border-sandstone rounded-[6px] px-3.5 py-2.5 type-body text-ink placeholder:text-mute focus-ring"
-                  onKeyDown={(e) => { if (e.key === "Enter") void handleAddTag(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleAddTag();
+                  }}
                 />
               </div>
 
-              <div className="space-y-1">
-                <label htmlFor="add-tag-reviewer" className="type-caption font-semibold text-ink block">
-                  Your name:
-                </label>
-                <input
-                  id="add-tag-reviewer"
-                  type="text"
-                  value={addTagReviewer || reviewer}
-                  onChange={(e) => setAddTagReviewer(e.target.value)}
-                  placeholder="Reviewer name"
-                  className="w-full bg-stone/40 border border-sandstone rounded-[6px] px-3.5 py-2.5 type-body text-ink placeholder:text-mute focus-ring"
-                />
-              </div>
+              <p className="type-caption text-mute">
+                Recorded as:{" "}
+                <span className="font-semibold text-ink">
+                  {reviewer || "no reviewer selected"}
+                </span>
+              </p>
 
               <div className="flex gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => void handleAddTag()}
-                  disabled={isActing || !addTagLabel.trim()}
+                  disabled={isActing || !addTagLabel.trim() || !reviewer}
                   className="flex-1 py-2.5 bg-indigo text-paper rounded-[6px] type-small font-semibold focus-ring hover:bg-indigo/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isActing ? "Saving..." : "Add tag"}

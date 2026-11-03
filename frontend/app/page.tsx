@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Navbar } from "@/components/Navbar";
 import { ExplorePanel } from "@/components/ExplorePanel";
 import { MobileBottomSheet } from "@/components/MobileBottomSheet";
+import { CinematicHome } from "@/components/CinematicHome";
 import { getSiteById, getSites } from "@/lib/api";
 import type { SiteDetail, SiteSummary } from "@/lib/types";
 
@@ -44,8 +45,6 @@ export default function ExplorePage() {
 
     getSites({
       region: selectedRegion || undefined,
-      category: selectedCategory || undefined,
-      verified_only: verifiedOnly ? true : undefined,
     })
       .then((data) => {
         if (!ignore) {
@@ -68,7 +67,7 @@ export default function ExplorePage() {
     return () => {
       ignore = true;
     };
-  }, [selectedRegion, selectedCategory, verifiedOnly, reloadTrigger]);
+  }, [selectedRegion, reloadTrigger]);
 
   const handleRetry = useCallback(() => {
     setIsLoadingSites(true);
@@ -81,26 +80,31 @@ export default function ExplorePage() {
   }, []);
 
   const handleCategoryChange = useCallback((category: string) => {
-    setIsLoadingSites(true);
     setSelectedCategory(category);
   }, []);
 
   const handleVerifiedOnlyChange = useCallback((verified: boolean) => {
-    setIsLoadingSites(true);
     setVerifiedOnly(verified);
   }, []);
 
-  // Client-side text query filter
+  // Client-side filtering per Task 5: region uses API; category and search query work client-side
   const displayedSites = useMemo(() => {
-    if (!searchQuery.trim()) return allSites;
-    const q = searchQuery.toLowerCase().trim();
-    return allSites.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.category.toLowerCase().includes(q) ||
-        s.region.toLowerCase().includes(q)
-    );
-  }, [allSites, searchQuery]);
+    let result = allSites;
+    if (selectedCategory) {
+      const cat = selectedCategory.toLowerCase();
+      result = result.filter((s) => s.category.toLowerCase() === cat);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.category.toLowerCase().includes(q) ||
+          s.region.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [allSites, selectedCategory, searchQuery]);
 
   // Handle site selection (from list or map pin click)
   const handleSelectSite = useCallback(
@@ -142,11 +146,11 @@ export default function ExplorePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-stone flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-stone flex flex-col">
       <Navbar />
+      <CinematicHome />
 
-      {/* Main Explore layout per DESIGN.md: 400px panel + full height map */}
-      <main className="flex-1 relative flex flex-col md:flex-row h-[calc(100vh-56px)] overflow-hidden">
+      <main id="explore-map" className="cinema-map-section flex-none relative flex flex-col md:flex-row h-[760px] md:h-[760px] min-h-0 overflow-hidden">
         {/* Desktop 400 px left panel */}
         <div className="hidden md:block w-[400px] shrink-0 h-full">
           <ExplorePanel
@@ -172,7 +176,10 @@ export default function ExplorePage() {
         </div>
 
         {/* Map area (full height on desktop and mobile) */}
-        <section aria-label="Heritage map" className="flex-1 h-full w-full relative">
+        <section
+          aria-label="Heritage map"
+          className="flex-1 h-[calc(100vh-56px)] min-h-[420px] md:h-[calc(100vh-56px)] w-full relative"
+        >
           <ExploreMap
             sites={displayedSites}
             selectedSiteId={selectedSiteId}

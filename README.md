@@ -61,8 +61,9 @@ Checklist for the developer once the Supabase project exists:
 5. Keep `sslmode=require`; never commit the password. `.env` is gitignored and `.env.example`
    contains placeholders only.
 
-The Supabase connection has **not** been executed in this build; see
-`docs/SUBMISSION_READINESS.md` for the exact blocked status.
+Supabase connectivity, schema compatibility and read-only production checks were
+verified during release preparation. Keep the database and test-database
+credentials local and follow the safety checklist above before running writes.
 
 ### CORS, uploads and write endpoints
 `CORS_ORIGINS` is a comma-separated allow-list (default `http://localhost:3000`). Uploads are
@@ -97,6 +98,8 @@ licence URL, source URL and dimensions. Raw images are gitignored.
     python -m scripts.dataset.generate_report      # data/dataset/REPORT.md
 
 Outputs: `data/dataset/manifest.json`, `sites.json`, `images.json`, `validation.json`, `REPORT.md`.
+The reproducible release also includes the 150 curated JPEGs in
+`data/dataset/images/`, tracked with Git LFS. Raw download folders remain gitignored.
 `python -m scripts.dataset.download_roboflow` is optional and skips cleanly without credentials.
 
 Load and embed the dataset:

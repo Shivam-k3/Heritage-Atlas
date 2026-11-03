@@ -1,7 +1,9 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import type { SiteDetail, SiteSummary } from "@/lib/types";
+import { resolveImageUrl } from "@/lib/api";
 import { ProvenanceChip } from "./ProvenanceChip";
 
 export interface ExplorePanelProps {
@@ -148,9 +150,14 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({
             </div>
           ) : (
             <div className="space-y-5">
-              {/* Site header */}
+              {/* Site header linking to /sites/[id] */}
               <div>
-                <h2 className="type-h2 text-indigo">{selectedSite.name}</h2>
+                <Link
+                  href={`/sites/${selectedSite.id}`}
+                  className="type-h2 text-indigo hover:underline focus-ring rounded-[4px] block"
+                >
+                  {selectedSite.name} &rarr;
+                </Link>
                 <div className="flex items-center gap-2 mt-1.5 text-mute type-small">
                   <CategoryIcon category={selectedSite.category} />
                   <span className="capitalize">{selectedSite.category}</span>
@@ -162,14 +169,18 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({
               {/* Photo section per DESIGN.md: large photo leading, radius 0, attribution under photo */}
               {selectedSite.images && selectedSite.images.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="relative w-full aspect-video bg-stone overflow-hidden rounded-none border border-sandstone">
+                  <Link
+                    href={`/sites/${selectedSite.id}`}
+                    className="block relative w-full aspect-video bg-stone overflow-hidden rounded-none border border-sandstone focus-ring"
+                    title={`View ${selectedSite.name} site record`}
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={selectedSite.images[0].url}
+                      src={resolveImageUrl(selectedSite.images[0].url)}
                       alt={selectedSite.name}
-                      className="w-full h-full object-cover rounded-none"
+                      className="w-full h-full object-cover rounded-none hover:scale-105 transition-transform duration-200"
                     />
-                  </div>
+                  </Link>
                   <div className="type-caption text-mute">
                     Photo by {selectedSite.images[0].author} &bull; Licence:{" "}
                     {selectedSite.images[0].licence}
@@ -205,6 +216,17 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({
                     </div>
                   </div>
                 )}
+
+              {/* Action button to open full site page per Task 5 */}
+              <div className="pt-2 border-t border-sandstone">
+                <Link
+                  href={`/sites/${selectedSite.id}`}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo text-paper rounded-[6px] type-small font-semibold hover:bg-indigo/90 focus-ring transition-colors"
+                >
+                  <span>Open full site record</span>
+                  <span aria-hidden="true">&rarr;</span>
+                </Link>
+              </div>
             </div>
           )}
         </div>
@@ -213,6 +235,15 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Filters header */}
           <div className="p-4 sm:p-5 border-b border-sandstone space-y-3.5 bg-paper shrink-0">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="type-caption text-terracotta font-semibold tracking-[0.12em] uppercase">
+                  Discover
+                </p>
+                <h1 className="type-h2 text-indigo mt-1">Heritage sites</h1>
+              </div>
+              <span className="type-caption text-mute">Gujarat + Rajasthan</span>
+            </div>
             {/* Search input */}
             <div className="relative">
               <input
@@ -386,10 +417,10 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({
                     key={site.id}
                     type="button"
                     onClick={() => onSelectSite(site.id)}
-                    className={`w-full text-left p-4 transition-colors flex items-start gap-3 focus-ring ${
+                    className={`w-full text-left p-4 transition-colors flex items-start gap-3 border-l-4 focus-ring ${
                       isSelected
-                        ? "bg-stone border-l-4 border-indigo font-semibold"
-                        : "hover:bg-stone/50 bg-paper"
+                        ? "bg-stone border-indigo font-semibold"
+                        : "hover:bg-stone/50 bg-paper border-transparent"
                     }`}
                   >
                     <div className="mt-1">

@@ -82,3 +82,48 @@ def text_embedding_model() -> str:
 def model_device() -> str | None:
     value = os.getenv("MODEL_DEVICE", "").strip()
     return value or None
+
+
+def ai_enabled() -> bool:
+    return os.getenv("AI_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def ai_provider() -> str:
+    return os.getenv("AI_PROVIDER", "gemini").strip().lower()
+
+
+def gemini_api_key() -> str | None:
+    value = os.getenv("GEMINI_API_KEY", "").strip()
+    return value or None
+
+
+def gemini_model() -> str:
+    return os.getenv("GEMINI_MODEL", "gemini-3-flash-preview").strip() or "gemini-3-flash-preview"
+
+
+def ai_timeout_seconds() -> float:
+    return max(1.0, float(os.getenv("AI_TIMEOUT_SECONDS", "30")))
+
+
+def ai_max_output_tokens() -> int:
+    return max(1, int(os.getenv("AI_MAX_OUTPUT_TOKENS", "700")))
+
+
+def ai_temperature() -> float:
+    return min(2.0, max(0.0, float(os.getenv("AI_TEMPERATURE", "0.3"))))
+
+
+def ai_max_history_messages() -> int:
+    return max(0, int(os.getenv("AI_MAX_HISTORY_MESSAGES", "10")))
+
+
+def ai_max_requests_per_minute() -> int:
+    return max(1, int(os.getenv("AI_MAX_REQUESTS_PER_MINUTE", "10")))
+
+
+def ai_max_retries() -> int:
+    return min(2, max(0, int(os.getenv("AI_MAX_RETRIES", "1"))))
+
+
+def ai_max_concurrency() -> int:
+    return min(4, max(1, int(os.getenv("AI_MAX_CONCURRENCY", "2"))))

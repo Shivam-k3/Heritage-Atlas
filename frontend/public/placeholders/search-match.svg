@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <rect width="1200" height="800" fill="#E8EAE6"/>
+  <rect x="100" y="80" width="1000" height="640" fill="#F7F8F5" stroke="#B3A184" stroke-width="4"/>
+  <circle cx="600" cy="380" r="140" fill="none" stroke="#25305E" stroke-width="6"/>
+  <polygon points="600,280 520,440 680,440" fill="none" stroke="#8A5A00" stroke-width="5"/>
+  <text x="600" y="70" font-family="serif" font-size="28" font-weight="bold" fill="#25305E" text-anchor="middle">Visual Feature Match (Mock Image Search)</text>
+  <rect x="350" y="680" width="500" height="40" rx="6" fill="#1A1D26" opacity="0.85"/>
+  <text x="600" y="705" font-family="sans-serif" font-size="16" fill="#F7F8F5" text-anchor="middle">[Placeholder Image &bull; Mock Dataset &bull; No Invented Photo]</text>
+</svg>

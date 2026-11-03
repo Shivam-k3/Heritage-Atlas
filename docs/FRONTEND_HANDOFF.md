@@ -181,3 +181,86 @@ confidence. A site with no images or tags may legitimately return an empty array
 - [ ] No score is rendered as a percentage or confidence.
 - [ ] Loading, error and empty states exist for every fetch.
 - [ ] `npm run lint`, `npm run build` and the frontend tests pass.
+
+## 6. Ask Heritage Atlas Gemini assistant
+
+The backend exposes optional, server-side Gemini endpoints. The frontend must not handle
+`GEMINI_API_KEY`; it should call these endpoints through `frontend/lib/api.ts`.
+
+### Status
+
+`GET /ai/status` returns:
+
+```json
+{
+  "enabled": true,
+  "provider": "gemini",
+  "model": "gemini-3-flash-preview",
+  "configured": true,
+  "available": true
+}
+```
+
+If `enabled`, `configured`, or `available` is false, hide or disable generation controls while
+keeping ordinary search available.
+
+### Chat
+
+`POST /ai/chat`:
+
+```json
+{
+  "question": "Find Jain temples with intricate stone carvings",
+  "history": [{"role": "user", "content": "Show me Gujarat sites"}],
+  "site_id": null,
+  "image_id": null
+}
+```
+
+The response contains:
+
+```json
+{
+  "response": "...",
+  "intent": "heritage_discovery",
+  "sites": [{"id": 12, "name": "Hutheesing Jain Temple", "region": "Gujarat"}],
+  "images": [],
+  "sources": [{"kind": "site", "label": "Hutheesing Jain Temple", "site_id": 12}],
+  "ai_generated": true,
+  "warnings": []
+}
+```
+
+Keep only the last ten messages in local UI state. Render `ai_generated` visibly as
+"AI-generated interpretation"; it is never human verification. Render `warnings` as a non-blocking
+notice. A disabled, missing-key, quota, timeout or provider failure returns real retrieval results
+with `ai_generated: false`; do not replace them with demo records.
+
+### Explain a site
+
+`POST /ai/explain/{site_id}` returns `site`, `explanation`, `architectural_characteristics`,
+`historical_context`, `sources`, `ai_generated`, and `warnings`. Keep `historical_context` and the
+original site description visually separate from the generated explanation. Show each image's
+`author`, `licence`, `licence_url`, and `source_url` from the returned image record.
+
+### Trail suggestions
+
+`POST /ai/trails/suggest`:
+
+```json
+{"site_ids": [1, 2, 18], "title": "Stepwells of Gujarat", "description": null}
+```
+
+The endpoint does not persist a trail. It returns real `sites`, `theme`, `rationale`, ordered
+`legs`, `distance_mode: "straight_line"`, `missing_coordinates`, `ai_generated`, and `warnings`.
+Never describe these legs as driving or walking directions. A missing coordinate must be shown as
+distance unavailable, not guessed.
+
+### UI states and navigation
+
+Show loading while each AI request is pending, an empty state when retrieval returns no records,
+and the FastAPI `detail` message for 404/422 errors. For 429/503-equivalent provider warnings,
+keep the existing search and site navigation usable. Site results link to `/sites/{id}` and image
+results use their `/files/...` URL plus the returned attribution. The backend bounds questions to
+2,000 characters, history to ten messages, output to 700 tokens, and requests to the configured
+per-minute budget; the frontend should display these limits rather than silently truncating.

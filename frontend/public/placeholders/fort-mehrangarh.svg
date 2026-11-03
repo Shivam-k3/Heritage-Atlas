@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <rect width="1200" height="800" fill="#E8EAE6"/>
+  <rect x="100" y="80" width="1000" height="640" fill="#F7F8F5" stroke="#B3A184" stroke-width="4"/>
+  <!-- Perpendicular cliff and soaring ramparts -->
+  <polygon points="200,600 350,340 850,340 1000,600" fill="#B3A184" opacity="0.3"/>
+  <rect x="350" y="240" width="500" height="180" fill="none" stroke="#25305E" stroke-width="6"/>
+  <!-- Filigree jharokha balconies -->
+  <rect x="420" y="280" width="50" height="70" rx="4" fill="none" stroke="#9B2C2C" stroke-width="4"/>
+  <rect x="520" y="280" width="50" height="70" rx="4" fill="none" stroke="#9B2C2C" stroke-width="4"/>
+  <rect x="620" y="280" width="50" height="70" rx="4" fill="none" stroke="#9B2C2C" stroke-width="4"/>
+  <rect x="720" y="280" width="50" height="70" rx="4" fill="none" stroke="#9B2C2C" stroke-width="4"/>
+  <text x="600" y="70" font-family="serif" font-size="28" font-weight="bold" fill="#25305E" text-anchor="middle">Mehrangarh Fort - Cliff Bastions &amp; Jharokhas</text>
+  <rect x="350" y="680" width="500" height="40" rx="6" fill="#1A1D26" opacity="0.85"/>
+  <text x="600" y="705" font-family="sans-serif" font-size="16" fill="#F7F8F5" text-anchor="middle">[Placeholder Image &bull; Mock Dataset &bull; No Invented Photo]</text>
+</svg>

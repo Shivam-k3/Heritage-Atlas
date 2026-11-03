@@ -1,0 +1,18 @@
+{
+  "sites": 30,
+  "images": 150,
+  "unique_images": 150,
+  "licences": {
+    "CC BY 2.0": 7,
+    "CC BY 3.0": 9,
+    "CC BY-SA 2.0": 11,
+    "CC BY-SA 2.5": 1,
+    "CC BY-SA 3.0": 76,
+    "CC BY-SA 4.0": 38,
+    "CC0": 3,
+    "No restrictions": 3,
+    "Public domain": 2
+  },
+  "errors": [],
+  "warnings": []
+}

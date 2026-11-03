@@ -191,3 +191,48 @@ Uploaded files are served read-only from `/files/...`.
 ## Errors
 `{"detail":"message"}` with 400 (bad input), 404 (missing), 409 (database constraint violation),
 413 (upload too large), 422 (validation), 500 (unexpected), 503 (database unavailable).
+
+## Gemini AI assistant
+The AI endpoints are optional and disabled unless `AI_ENABLED=true` and a server-side
+`GEMINI_API_KEY` are configured. They retrieve from the existing CLIP, MiniLM and PostgreSQL
+services before sending a bounded context to the configurable Gemini Flash model. AI output is an
+interpretation of retrieved records, not a verification layer; original notes, attribution and
+tag provenance remain authoritative.
+
+### GET /ai/status
+Returns provider configuration without exposing credentials:
+```json
+{"enabled":true,"provider":"gemini","model":"gemini-3-flash-preview","configured":true,"available":true}
+```
+`configured` is false when the API key is absent. `available` reflects local configuration only;
+generation can still fail due to provider quota or access restrictions.
+
+### POST /ai/chat
+Request:
+```json
+{
+  "question":"Explain the stepwell architecture at Rani ki Vav",
+  "history":[{"role":"user","content":"What is special about it?"}],
+  "site_id":1,
+  "image_id":null
+}
+```
+`question` is limited to 2,000 characters. History is limited to the last ten messages and each
+message to 2,000 characters. The response includes `response`, `intent`, real `sites`, real
+`images`, `sources`, `ai_generated`, and `warnings`.
+
+### POST /ai/explain/{site_id}
+Generates a grounded explanation for an existing site. Unknown sites return 404. The response
+includes the real site record, generated explanation, available source references, and warnings.
+
+### POST /ai/trails/suggest
+Request:
+```json
+{"site_ids":[1,2,18],"title":"Stepwells of Gujarat","description":null}
+```
+Only existing site IDs are accepted. The response contains real site IDs in a suggested order,
+a generated theme and rationale, available coordinates, straight-line distance legs, and
+missing-coordinate warnings. It does not persist a trail.
+
+Gemini failures are returned as warnings and never trigger a paid fallback or automatic model
+switch. Free-tier quotas and model availability are controlled by Google and can change.

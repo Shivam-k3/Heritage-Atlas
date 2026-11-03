@@ -1,5 +1,10 @@
 import type { SiteDetail } from "../types";
 
+/**
+ * Mock dataset for development when backend is offline (NEXT_PUBLIC_USE_MOCKS=true).
+ * All image assets use local SVGs.
+ * Attributions and licences are explicitly marked as placeholder data with no invented identities.
+ */
 export const MOCK_SITES: SiteDetail[] = [
   {
     id: 1,
@@ -13,10 +18,10 @@ export const MOCK_SITES: SiteDetail[] = [
     images: [
       {
         id: 101,
-        url: "https://images.unsplash.com/photo-1599818818819-0f62fd1553c6?auto=format&fit=crop&w=1200&q=80",
-        author: "K. Mehta",
-        licence: "CC BY-SA 4.0",
-        source_url: "https://commons.wikimedia.org/wiki/File:Rani_ki_vav.jpg",
+        url: "/placeholders/stepwell-rani.svg",
+        author: "[Placeholder Contributor]",
+        licence: "Placeholder (CC BY-SA 4.0)",
+        source_url: "/placeholders/stepwell-rani.svg",
         status: "processed",
         tags: [
           { id: 1, label: "stepwell", tag_type: "site_type", score: 0.94, status: "verified" },
@@ -39,10 +44,10 @@ export const MOCK_SITES: SiteDetail[] = [
     images: [
       {
         id: 102,
-        url: "https://images.unsplash.com/photo-1609137144813-7d9921338f24?auto=format&fit=crop&w=1200&q=80",
-        author: "A. Patel",
-        licence: "CC BY-SA 4.0",
-        source_url: "https://commons.wikimedia.org/wiki/File:Adalaj_Stepwell.jpg",
+        url: "/placeholders/stepwell-adalaj.svg",
+        author: "[Placeholder Contributor]",
+        licence: "Placeholder (CC BY-SA 4.0)",
+        source_url: "/placeholders/stepwell-adalaj.svg",
         status: "processed",
         tags: [
           { id: 5, label: "stepwell", tag_type: "site_type", score: 0.91, status: "verified" },
@@ -65,10 +70,10 @@ export const MOCK_SITES: SiteDetail[] = [
     images: [
       {
         id: 103,
-        url: "https://images.unsplash.com/photo-1624640196238-dcf2b92110c4?auto=format&fit=crop&w=1200&q=80",
-        author: "V. Sharma",
-        licence: "CC BY-SA 4.0",
-        source_url: "https://commons.wikimedia.org/wiki/File:Modhera_Sun_Temple.jpg",
+        url: "/placeholders/temple-modhera.svg",
+        author: "[Placeholder Contributor]",
+        licence: "Placeholder (CC BY-SA 4.0)",
+        source_url: "/placeholders/temple-modhera.svg",
         status: "processed",
         tags: [
           { id: 9, label: "temple", tag_type: "site_type", score: 0.96, status: "verified" },
@@ -91,10 +96,10 @@ export const MOCK_SITES: SiteDetail[] = [
     images: [
       {
         id: 104,
-        url: "https://images.unsplash.com/photo-1598977123418-454555aa0b18?auto=format&fit=crop&w=1200&q=80",
-        author: "R. Singh",
-        licence: "CC BY-SA 4.0",
-        source_url: "https://commons.wikimedia.org/wiki/File:Chand_Baori.jpg",
+        url: "/placeholders/stepwell-chandbaori.svg",
+        author: "[Placeholder Contributor]",
+        licence: "Placeholder (CC BY-SA 4.0)",
+        source_url: "/placeholders/stepwell-chandbaori.svg",
         status: "processed",
         tags: [
           { id: 13, label: "stepwell", tag_type: "site_type", score: 0.97, status: "verified" },
@@ -117,10 +122,10 @@ export const MOCK_SITES: SiteDetail[] = [
     images: [
       {
         id: 105,
-        url: "https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=1200&q=80",
-        author: "H. Joshi",
-        licence: "CC BY-SA 4.0",
-        source_url: "https://commons.wikimedia.org/wiki/File:Kumbhalgarh_Fort.jpg",
+        url: "/placeholders/fort-kumbhalgarh.svg",
+        author: "[Placeholder Contributor]",
+        licence: "Placeholder (CC BY-SA 4.0)",
+        source_url: "/placeholders/fort-kumbhalgarh.svg",
         status: "processed",
         tags: [
           { id: 17, label: "fort", tag_type: "site_type", score: 0.95, status: "verified" },
@@ -143,10 +148,10 @@ export const MOCK_SITES: SiteDetail[] = [
     images: [
       {
         id: 106,
-        url: "https://images.unsplash.com/photo-1590766940554-634a7ed41450?auto=format&fit=crop&w=1200&q=80",
-        author: "N. Rathore",
-        licence: "CC BY-SA 4.0",
-        source_url: "https://commons.wikimedia.org/wiki/File:Mehrangarh_Fort.jpg",
+        url: "/placeholders/fort-mehrangarh.svg",
+        author: "[Placeholder Contributor]",
+        licence: "Placeholder (CC BY-SA 4.0)",
+        source_url: "/placeholders/fort-mehrangarh.svg",
         status: "processed",
         tags: [
           { id: 21, label: "fort", tag_type: "site_type", score: 0.98, status: "verified" },

@@ -2254,6 +2254,151 @@
         }
       }
     },
+    "/ai/status": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Ai Status",
+        "operationId": "ai_status_ai_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStatusOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/chat": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Ai Chat",
+        "operationId": "ai_chat_ai_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIChatOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/explain/{site_id}": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Ai Explain",
+        "operationId": "ai_explain_ai_explain__site_id__post",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIExplainOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/trails/suggest": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Ai Trail Suggest",
+        "operationId": "ai_trail_suggest_ai_trails_suggest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AITrailSuggestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AITrailSuggestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -2274,10 +2419,492 @@
           }
         }
       }
+    },
+    "/readiness": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness",
+        "operationId": "readiness_readiness_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessOut"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AIChatOut": {
+        "properties": {
+          "response": {
+            "type": "string",
+            "title": "Response"
+          },
+          "intent": {
+            "type": "string",
+            "title": "Intent"
+          },
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/SiteSummaryOut"
+            },
+            "type": "array",
+            "title": "Sites"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/SearchImageOut"
+            },
+            "type": "array",
+            "title": "Images"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/AISourceOut"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "ai_generated": {
+            "type": "boolean",
+            "title": "Ai Generated"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "response",
+          "intent",
+          "ai_generated"
+        ],
+        "title": "AIChatOut"
+      },
+      "AIChatRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/AIHistoryMessage"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "image_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "AIChatRequest"
+      },
+      "AIExplainOut": {
+        "properties": {
+          "site": {
+            "$ref": "#/components/schemas/SiteDetailOut"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "architectural_characteristics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Architectural Characteristics"
+          },
+          "historical_context": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Historical Context"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/AISourceOut"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "ai_generated": {
+            "type": "boolean",
+            "title": "Ai Generated"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site",
+          "explanation",
+          "ai_generated"
+        ],
+        "title": "AIExplainOut"
+      },
+      "AIHistoryMessage": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "AIHistoryMessage"
+      },
+      "AISourceOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "site",
+              "image"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "image_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Id"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "licence_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Licence Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "AISourceOut"
+      },
+      "AIStatusOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "provider",
+          "model",
+          "configured",
+          "available"
+        ],
+        "title": "AIStatusOut"
+      },
+      "AITrailLegOut": {
+        "properties": {
+          "from": {
+            "type": "integer",
+            "title": "From"
+          },
+          "to": {
+            "type": "integer",
+            "title": "To"
+          },
+          "km": {
+            "type": "number",
+            "title": "Km"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "km"
+        ],
+        "title": "AITrailLegOut"
+      },
+      "AITrailSiteOut": {
+        "properties": {
+          "site_id": {
+            "type": "integer",
+            "title": "Site Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lon": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lon"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site_id",
+          "name"
+        ],
+        "title": "AITrailSiteOut"
+      },
+      "AITrailSuggestOut": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "rationale": {
+            "type": "string",
+            "title": "Rationale"
+          },
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/AITrailSiteOut"
+            },
+            "type": "array",
+            "title": "Sites"
+          },
+          "legs": {
+            "items": {
+              "$ref": "#/components/schemas/AITrailLegOut"
+            },
+            "type": "array",
+            "title": "Legs"
+          },
+          "distance_mode": {
+            "type": "string",
+            "const": "straight_line",
+            "title": "Distance Mode",
+            "default": "straight_line"
+          },
+          "missing_coordinates": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Missing Coordinates"
+          },
+          "ai_generated": {
+            "type": "boolean",
+            "title": "Ai Generated"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "theme",
+          "rationale",
+          "sites",
+          "legs",
+          "ai_generated"
+        ],
+        "title": "AITrailSuggestOut"
+      },
+      "AITrailSuggestRequest": {
+        "properties": {
+          "site_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Site Ids"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site_ids"
+        ],
+        "title": "AITrailSuggestRequest"
+      },
       "Body_search_by_image_search_by_image_post": {
         "properties": {
           "file": {
@@ -3234,6 +3861,80 @@
           "km"
         ],
         "title": "LegOut"
+      },
+      "ModelReadinessOut": {
+        "properties": {
+          "loaded": {
+            "type": "boolean",
+            "title": "Loaded"
+          },
+          "dimension": {
+            "type": "integer",
+            "title": "Dimension"
+          },
+          "initialization_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initialization Seconds"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loaded",
+          "dimension"
+        ],
+        "title": "ModelReadinessOut"
+      },
+      "ReadinessOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
+            "title": "Status"
+          },
+          "database": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Database"
+          },
+          "models": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ModelReadinessOut"
+            },
+            "type": "object",
+            "title": "Models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "database",
+          "models"
+        ],
+        "title": "ReadinessOut"
       },
       "RelatedSiteOut": {
         "properties": {

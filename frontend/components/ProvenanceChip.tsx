@@ -12,7 +12,7 @@ export type ProvenanceStatus =
 export interface ProvenanceChipProps {
   status: ProvenanceStatus;
   label?: string;
-  score?: number;
+  score?: number | null;
   interactive?: boolean;
   disabled?: boolean;
   onClick?: () => void;
