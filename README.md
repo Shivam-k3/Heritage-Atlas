@@ -175,6 +175,18 @@ Database tests need `TEST_DATABASE_URL` pointing at a database whose name ends i
     data/dataset/           committed manifests, validation and reports
     frontend/               Next.js app (separate lane)
 
+## Performance
+The homepage hero image is rendered with Next.js `<Image priority>` (`fill`, `sizes="100vw"`, `quality={90}`),
+so the above-the-fold LCP asset is fetched at high priority and served as optimized WebP instead of an
+unoptimized plain ``. Its container already defines the hero box, so `fill` reserves the space and introduces
+no layout shift; the existing crop (`object-position`) and drift animation are unchanged. `next.config.ts`
+allows the `quality={90}` value and permits optimizing the localhost:8000 dev backend with
+`dangerouslyAllowLocalIP` in development only (it is `false` in production; fetches stay restricted to that
+host by `remotePatterns`). The hero image URL still comes from the backend sites API, so the image cannot begin
+downloading before those calls resolve; the hero heading and CTA are static and render immediately. Runtime
+behaviour was verified against a local mock API: the browser requested the hero through `/_next/image` and
+received `200 image/webp`. No quantitative performance metrics (LCP, timings) are claimed here.
+
 ## Design rules
 - CLIP (512-d) and MiniLM (384-d) are separate spaces; never compare across them.
 - Tag scores are raw cosine similarities, not probabilities. Per-label thresholds live in

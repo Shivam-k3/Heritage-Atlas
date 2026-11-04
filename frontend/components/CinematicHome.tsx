@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { askHeritage, getSite, getSites, resolveImageUrl } from "@/lib/api";
 import type { AIChatMessage, AIChatResponse, SiteDetail, SiteSummary } from "@/lib/types";
 
@@ -76,8 +77,14 @@ export function CinematicHome() {
       <section className="cinema-hero">
         <div className="cinema-hero-image">
           {hero?.images[0] && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={resolveImageUrl(hero.images[0].url)} alt={hero.name} fetchPriority="high" />
+            <Image
+              fill
+              priority
+              sizes="100vw"
+              quality={90}
+              src={resolveImageUrl(hero.images[0].url)}
+              alt={hero.name}
+            />
           )}
         </div>
         <div className="cinema-hero-scrim" />
